@@ -3,6 +3,12 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/Tooling/Tooling.h"
+#include "clang/Tooling/CommonOptionsParser.h"
+#include "llvm/Support/CommandLine.h"
+
+using namespace clang::tooling;
+using namespace llvm;
+using namespace clang;
 
 #include <set>
 #include <map>
@@ -103,8 +109,15 @@ public:
   explicit CollectDeclRefExprVisitor() {}
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration) {
-    string name = Declaration->getNameInfo().getAsString();
-    Variables.insert(name);
+
+    if(Declaration == 0)
+      return true;
+
+    if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
+      string name = VarDeclToString(VD);
+      Variables.insert(name);
+    }
+
     return true;
   }
 
@@ -149,9 +162,9 @@ public:
       Gamma.insert(std::pair<string, set<string>>(name, set<string>()));
     };
     Beta.insert(std::pair<string, set<string>>(name, set<string>()));
-   
+
     return true;
-    
+
   }
 
   void reassign(string name){
@@ -174,16 +187,21 @@ public:
 
   // Check if usage of variable is valid
   bool VisitDeclRefExpr(DeclRefExpr *Declaration) {
-    Declaration->dump();
-    string name = DeclRefExprToString(Declaration);
-    FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
-    if (Alpha[name] == false){
-      llvm::outs() << "WARNING! " << name << " is not updated! ";
-      if (FullLocation.isValid())
-        llvm::outs() << "This error is at: "
-                      << FullLocation.getSpellingLineNumber() << ":"
-                      << FullLocation.getSpellingColumnNumber() << "\n";
-    };
+
+    if(Declaration == 0)
+      return true;
+
+    if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
+      string name = VarDeclToString(VD);
+      FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
+      if (Alpha[name] == false){
+        llvm::outs() << "WARNING! " << name << " is not updated! ";
+        if (FullLocation.isValid())
+          llvm::outs() << "This error is at: "
+                        << FullLocation.getSpellingLineNumber() << ":"
+                        << FullLocation.getSpellingColumnNumber() << "\n";
+      }
+    }
     return true;
   }
 
@@ -318,7 +336,7 @@ private:
   void CheckReassigment(set<string> Vars) {
     for (string v : Vars){
       if (Alpha[v] == false){
-        llvm::outs() << "WARNING: The variable " << v << " is not updated."; 
+        llvm::outs() << "WARNING: The variable " << v << " is not updated.";
       }
     }
   }
@@ -346,8 +364,18 @@ public:
   }
 };
 
+static llvm::cl::OptionCategory MyToolCategory("My tool options");
+int main(int argc, const char **argv) {
+  CommonOptionsParser OptionsParser(argc, argv, MyToolCategory);
+  ClangTool Tool(OptionsParser.getCompilations(),
+                 OptionsParser.getSourcePathList());
+  return Tool.run(newFrontendActionFactory<DeclarativeCheckingAction>().get());
+}
+
+/*
 int main(int argc, char **argv) {
   if (argc > 1) {
     clang::tooling::runToolOnCode(std::make_unique<DeclarativeCheckingAction>(), argv[1]);
   }
 }
+*/

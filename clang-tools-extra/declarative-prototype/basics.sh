@@ -17,3 +17,6 @@
 
 # While Statements
 ./bin/declarative-prototype "int main(){int a = 0; int b = a; while(true){a = 3;} b; return 1;}"
+
+# Functions
+./bin/declarative-prototype "int foo(){return 0;} int main(){int a = 0; int b = a + 2; int c = foo(); return 1;}"
