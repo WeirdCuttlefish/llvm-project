@@ -118,10 +118,10 @@ private:
 };
 
 // Recurse through all AST
-class FindNamedClassVisitor
-  : public RecursiveASTVisitor<FindNamedClassVisitor> {
+class DeclarativeCheckingVisitor
+  : public RecursiveASTVisitor<DeclarativeCheckingVisitor> {
 public:
-  explicit FindNamedClassVisitor(
+  explicit DeclarativeCheckingVisitor(
     ASTContext *Context,
     map<string, bool> Alpha,
     map<string, set<string>> Beta,
@@ -200,11 +200,11 @@ public:
 
     if (elseStmt){
       // Recurse on body
-      FindNamedClassVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingVisitor Visitor1(Context, Alpha, Beta, Gamma);
       Visitor1.TraverseStmt(thenStmt);
 
       // Recurse on else
-      FindNamedClassVisitor Visitor2(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingVisitor Visitor2(Context, Alpha, Beta, Gamma);
       Visitor2.TraverseStmt(elseStmt);
 
       // Get Alphas
@@ -222,7 +222,7 @@ public:
       }
     } else {
       // Recurse on body
-      FindNamedClassVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingVisitor Visitor1(Context, Alpha, Beta, Gamma);
       Visitor1.TraverseStmt(thenStmt);
 
       // Get Alpha
@@ -245,7 +245,7 @@ public:
   bool TraverseForStmt(ForStmt *forStmt) {
     // Get init variable
     Stmt* initStmt = forStmt->getInit();
-    FindNamedClassVisitor InitFinder(Context, Alpha, Beta, Gamma);
+    DeclarativeCheckingVisitor InitFinder(Context, Alpha, Beta, Gamma);
     InitFinder.TraverseStmt(initStmt);
     map<string, bool> Alpha1 = InitFinder.getAlpha();
     map<string, set<string>> Beta1 = InitFinder.getBeta();
@@ -253,7 +253,7 @@ public:
 
     // Get Body
     Stmt* bodyStmt = forStmt->getBody();
-    FindNamedClassVisitor Visitor(Context, Alpha1, Beta1, Gamma1);
+    DeclarativeCheckingVisitor Visitor(Context, Alpha1, Beta1, Gamma1);
     Visitor.TraverseStmt(bodyStmt);
     map<string, bool> Alpha2 = Visitor.getAlpha();
 
@@ -319,29 +319,29 @@ private:
 
 };
 
-class FindNamedClassConsumer : public clang::ASTConsumer {
+class DeclarativeCheckingConsumer : public clang::ASTConsumer {
 public:
-  explicit FindNamedClassConsumer(ASTContext *Context)
+  explicit DeclarativeCheckingConsumer(ASTContext *Context)
     : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     Visitor.TraverseDecl(Context.getTranslationUnitDecl());
   }
 private:
-  FindNamedClassVisitor Visitor;
+  DeclarativeCheckingVisitor Visitor;
 };
 
-class FindNamedClassAction : public clang::ASTFrontendAction {
+class DeclarativeCheckingAction : public clang::ASTFrontendAction {
 public:
   virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(
     clang::CompilerInstance &Compiler, llvm::StringRef InFile) {
     return std::unique_ptr<clang::ASTConsumer>(
-        new FindNamedClassConsumer(&Compiler.getASTContext()));
+        new DeclarativeCheckingConsumer(&Compiler.getASTContext()));
   }
 };
 
 int main(int argc, char **argv) {
   if (argc > 1) {
-    clang::tooling::runToolOnCode(std::make_unique<FindNamedClassAction>(), argv[1]);
+    clang::tooling::runToolOnCode(std::make_unique<DeclarativeCheckingAction>(), argv[1]);
   }
 }
