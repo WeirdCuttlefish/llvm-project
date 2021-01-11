@@ -95,12 +95,12 @@ void PrintDeclRefExprLoc(DeclRefExpr *Declaration, ASTContext *Context) {
                   << FullLocation.getSpellingColumnNumber() << "\n";
 }
 
+
 // Collect variables inside expression
 class CollectDeclRefExprVisitor
   : public RecursiveASTVisitor<CollectDeclRefExprVisitor> {
 public:
-  explicit CollectDeclRefExprVisitor(ASTContext *Context)
-    : Context(Context) {}
+  explicit CollectDeclRefExprVisitor() {}
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration) {
     string name = Declaration->getNameInfo().getAsString();
@@ -113,7 +113,6 @@ public:
   }
 
 private:
-  ASTContext *Context;   // Probably important in the future for analysis with functions
   set<string> Variables;
 };
 
@@ -140,7 +139,7 @@ public:
     // Modify Alpha, Beta, Gamma
     Expr* Initializer = Declaration->getInit();
     if (Declaration->getAnyInitializer() != NULL){
-      CollectDeclRefExprVisitor CDREVisitor(Context);
+      CollectDeclRefExprVisitor CDREVisitor;
       CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Initializer));
       Alpha.insert(std::pair<string, bool>(name, true));
       Gamma.insert(std::pair<string, set<string>>(name, CDREVisitor.getVariable()));
@@ -150,15 +149,6 @@ public:
       Gamma.insert(std::pair<string, set<string>>(name, set<string>()));
     };
     Beta.insert(std::pair<string, set<string>>(name, set<string>()));
-
-    // Debugging print all
-    /*
-    llvm::outs() << "---------------  ROUND    --------------------\n";
-    PrintAlpha(Alpha);
-    PrintBeta(Beta);
-    PrintGamma(Gamma);
-    llvm::outs() << "----------------------------------------------\n";
-    */
    
     return true;
     
@@ -184,6 +174,7 @@ public:
 
   // Check if usage of variable is valid
   bool VisitDeclRefExpr(DeclRefExpr *Declaration) {
+    Declaration->dump();
     string name = DeclRefExprToString(Declaration);
     FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
     if (Alpha[name] == false){
