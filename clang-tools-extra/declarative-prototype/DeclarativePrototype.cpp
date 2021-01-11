@@ -11,6 +11,14 @@
 using namespace clang;
 using namespace std;
 
+string VarDeclToString(VarDecl *x){
+  return x->getNameAsString();
+}
+
+string DeclRefExprToString(DeclRefExpr *x){
+  return x->getNameInfo().getAsString();
+}
+
 void PrintGamma(map<string, set<string>> m) {
   llvm::outs() << "Gamma Begin:\n";
   map<string, set<string>>::iterator it;
@@ -127,7 +135,7 @@ public:
 
   // Find declaration statements
   bool VisitVarDecl(VarDecl *Declaration) {
-    string name = Declaration->getNameAsString();
+    string name = VarDeclToString(Declaration);
 
     // Modify Alpha, Beta, Gamma
     Expr* Initializer = Declaration->getInit();
@@ -160,7 +168,7 @@ public:
   bool VisitBinaryOperator(BinaryOperator *BinOperator) {
     if (BinOperator->isAssignmentOp()) {
       DeclRefExpr *Declaration = dyn_cast<DeclRefExpr>(BinOperator->getLHS());
-      string name = Declaration->getNameInfo().getAsString();
+      string name = DeclRefExprToString(Declaration);
       Expr *Rhs = BinOperator->getRHS();
       
       // CollectDeclRefExprVisitor CDREVisitor(Context);
@@ -178,11 +186,51 @@ public:
 
   // Check if usage of variable is valid
   bool VisitDeclRefExpr(DeclRefExpr *Declaration) {
-    string name = Declaration->getNameInfo().getAsString();
+    string name = DeclRefExprToString(Declaration);
+    FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
     if (Alpha[name] == false){
-      llvm::outs() << "WARNING: " << name << " is not updated!\n";
+      llvm::outs() << "WARNING! " << name << " is not updated! ";
+      if (FullLocation.isValid())
+        llvm::outs() << "This error is at: "
+                      << FullLocation.getSpellingLineNumber() << ":"
+                      << FullLocation.getSpellingColumnNumber() << "\n";
     };
     return true;
+  }
+
+  // Do recursive check inside IfStmt
+  bool TraverseIfStmt(IfStmt *ifStmt) {
+    
+    // Recurse on body
+    Stmt* thenStmt = ifStmt->getThen();
+    thenStmt->dump();
+    FindNamedClassVisitor Visitor(Context, Alpha, Beta, Gamma);
+    Visitor.TraverseStmt(thenStmt);
+
+    // Unions current Alpha with Alpha of Body
+    map<string, bool> Alpha2 = Visitor.getAlpha();
+    for (auto const& pair : Alpha){
+      string var = pair.first;
+      if (Alpha[var] && Alpha2[var]){
+        Alpha[var] = true;
+      } else {
+        Alpha[var] = false;
+      }
+    }
+
+    return true;
+  }
+
+  map<string, bool> getAlpha(){
+    return Alpha;
+  }
+
+  map<string, set<string>> getBeta(){
+    return Beta;
+  }
+
+  map<string, set<string>> getGamma(){
+    return Gamma;
   }
 
 private:
@@ -226,7 +274,7 @@ private:
 class FindNamedClassConsumer : public clang::ASTConsumer {
 public:
   explicit FindNamedClassConsumer(ASTContext *Context)
-    : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
+    : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()  ) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     Visitor.TraverseDecl(Context.getTranslationUnitDecl());
