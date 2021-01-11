@@ -113,8 +113,17 @@ private:
 class FindNamedClassVisitor
   : public RecursiveASTVisitor<FindNamedClassVisitor> {
 public:
-  explicit FindNamedClassVisitor(ASTContext *Context)
-    : Context(Context) {}
+  explicit FindNamedClassVisitor(
+    ASTContext *Context, 
+    map<string, bool> Alpha, 
+    map<string, set<string>> Beta, 
+    map<string, set<string>> Gamma
+  )
+    : Context(Context),
+      Alpha(map<string, bool>(Alpha)),
+      Beta(map<string, set<string>>(Beta)),
+      Gamma(map<string, set<string>>(Gamma))
+      {}
 
   // Find declaration statements
   bool VisitVarDecl(VarDecl *Declaration) {
@@ -217,7 +226,7 @@ private:
 class FindNamedClassConsumer : public clang::ASTConsumer {
 public:
   explicit FindNamedClassConsumer(ASTContext *Context)
-    : Visitor(Context) {}
+    : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     Visitor.TraverseDecl(Context.getTranslationUnitDecl());
