@@ -164,16 +164,20 @@ public:
     
   }
 
+  void reassign(string name){
+    Alpha[name] = true;
+    set<string> Clients = Beta[name];
+    for (string c : Clients){
+      Invalidate(c);
+    }
+  }
+
   // Find reassigment statements
   bool VisitBinaryOperator(BinaryOperator *BinOperator) {
     if (BinOperator->isAssignmentOp()) {
       DeclRefExpr *Declaration = dyn_cast<DeclRefExpr>(BinOperator->getLHS());
       string name = DeclRefExprToString(Declaration);
-      Alpha[name] = true;
-      set<string> Clients = Beta[name];
-      for (string c : Clients){
-        Invalidate(c);
-      }
+      reassign(name);
     }
     return true;
   }
@@ -189,6 +193,17 @@ public:
                       << FullLocation.getSpellingLineNumber() << ":"
                       << FullLocation.getSpellingColumnNumber() << "\n";
     };
+    return true;
+  }
+
+  bool TraverseUnaryOperator(UnaryOperator *unaryOperator){
+    if (unaryOperator->isIncrementOp() || unaryOperator->isDecrementOp()){
+      Expr* var = unaryOperator->getSubExpr();
+      string varname = DeclRefExprToString(dyn_cast<DeclRefExpr>(var));
+      reassign(varname);
+    } else {
+      RecursiveASTVisitor<DeclarativeCheckingVisitor>::TraverseUnaryOperator(unaryOperator);
+    }
     return true;
   }
 
