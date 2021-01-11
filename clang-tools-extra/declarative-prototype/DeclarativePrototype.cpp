@@ -122,9 +122,9 @@ class FindNamedClassVisitor
   : public RecursiveASTVisitor<FindNamedClassVisitor> {
 public:
   explicit FindNamedClassVisitor(
-    ASTContext *Context, 
-    map<string, bool> Alpha, 
-    map<string, set<string>> Beta, 
+    ASTContext *Context,
+    map<string, bool> Alpha,
+    map<string, set<string>> Beta,
     map<string, set<string>> Gamma
   )
     : Context(Context),
@@ -169,12 +169,6 @@ public:
     if (BinOperator->isAssignmentOp()) {
       DeclRefExpr *Declaration = dyn_cast<DeclRefExpr>(BinOperator->getLHS());
       string name = DeclRefExprToString(Declaration);
-      Expr *Rhs = BinOperator->getRHS();
-      
-      // CollectDeclRefExprVisitor CDREVisitor(Context);
-      // CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Rhs));
-      // CheckReassigment(CDREVisitor.getVariable());
-
       Alpha[name] = true;
       set<string> Clients = Beta[name];
       for (string c : Clients){
@@ -200,15 +194,70 @@ public:
 
   // Do recursive check inside IfStmt
   bool TraverseIfStmt(IfStmt *ifStmt) {
-    
-    // Recurse on body
-    Stmt* thenStmt = ifStmt->getThen();
-    thenStmt->dump();
-    FindNamedClassVisitor Visitor(Context, Alpha, Beta, Gamma);
-    Visitor.TraverseStmt(thenStmt);
 
-    // Unions current Alpha with Alpha of Body
+    Stmt* thenStmt = ifStmt->getThen();
+    Stmt* elseStmt = ifStmt->getElse();
+
+    if (elseStmt){
+      // Recurse on body
+      FindNamedClassVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      Visitor1.TraverseStmt(thenStmt);
+
+      // Recurse on else
+      FindNamedClassVisitor Visitor2(Context, Alpha, Beta, Gamma);
+      Visitor2.TraverseStmt(elseStmt);
+
+      // Get Alphas
+      map<string, bool> Alpha1 = Visitor1.getAlpha();
+      map<string, bool> Alpha2 = Visitor2.getAlpha();
+
+      // Union
+      for (auto const& pair : Alpha){
+        string var = pair.first;
+        if (Alpha1[var] && Alpha2[var]){
+          Alpha[var] = true;
+        } else {
+          Alpha[var] = false;
+        }
+      }
+    } else {
+      // Recurse on body
+      FindNamedClassVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      Visitor1.TraverseStmt(thenStmt);
+
+      // Get Alpha
+      map<string, bool> Alpha1 = Visitor1.getAlpha();
+
+      // Union
+      for (auto const& pair : Alpha){
+        string var = pair.first;
+        if (Alpha[var] && Alpha1[var]){
+          Alpha[var] = true;
+        } else {
+          Alpha[var] = false;
+        }
+      }
+
+    }
+    return true;
+  }
+
+  bool TraverseForStmt(ForStmt *forStmt) {
+    // Get init variable
+    Stmt* initStmt = forStmt->getInit();
+    FindNamedClassVisitor InitFinder(Context, Alpha, Beta, Gamma);
+    InitFinder.TraverseStmt(initStmt);
+    map<string, bool> Alpha1 = InitFinder.getAlpha();
+    map<string, set<string>> Beta1 = InitFinder.getBeta();
+    map<string, set<string>> Gamma1 = InitFinder.getGamma();
+
+    // Get Body
+    Stmt* bodyStmt = forStmt->getBody();
+    FindNamedClassVisitor Visitor(Context, Alpha1, Beta1, Gamma1);
+    Visitor.TraverseStmt(bodyStmt);
     map<string, bool> Alpha2 = Visitor.getAlpha();
+
+    // Union
     for (auto const& pair : Alpha){
       string var = pair.first;
       if (Alpha[var] && Alpha2[var]){
@@ -217,7 +266,6 @@ public:
         Alpha[var] = false;
       }
     }
-
     return true;
   }
 
@@ -274,7 +322,7 @@ private:
 class FindNamedClassConsumer : public clang::ASTConsumer {
 public:
   explicit FindNamedClassConsumer(ASTContext *Context)
-    : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()  ) {}
+    : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     Visitor.TraverseDecl(Context.getTranslationUnitDecl());
