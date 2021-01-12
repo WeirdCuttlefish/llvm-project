@@ -129,11 +129,13 @@ private:
   set<string> Variables;
 };
 
+/* ------------- Declarative Checker For Each Function ----------------------- */
+
 // Recurse through all AST
-class DeclarativeCheckingVisitor
-  : public RecursiveASTVisitor<DeclarativeCheckingVisitor> {
+class DeclarativeCheckingFunctionVisitor
+  : public RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor> {
 public:
-  explicit DeclarativeCheckingVisitor(
+  explicit DeclarativeCheckingFunctionVisitor(
     ASTContext *Context,
     map<string, bool> Alpha,
     map<string, set<string>> Beta,
@@ -211,7 +213,7 @@ public:
       string varname = DeclRefExprToString(dyn_cast<DeclRefExpr>(var));
       reassign(varname);
     } else {
-      RecursiveASTVisitor<DeclarativeCheckingVisitor>::TraverseUnaryOperator(unaryOperator);
+      RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor>::TraverseUnaryOperator(unaryOperator);
     }
     return true;
   }
@@ -224,11 +226,11 @@ public:
 
     if (elseStmt){
       // Recurse on body
-      DeclarativeCheckingVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma);
       Visitor1.TraverseStmt(thenStmt);
 
       // Recurse on else
-      DeclarativeCheckingVisitor Visitor2(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingFunctionVisitor Visitor2(Context, Alpha, Beta, Gamma);
       Visitor2.TraverseStmt(elseStmt);
 
       // Get Alphas
@@ -246,7 +248,7 @@ public:
       }
     } else {
       // Recurse on body
-      DeclarativeCheckingVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma);
       Visitor1.TraverseStmt(thenStmt);
 
       // Get Alpha
@@ -269,7 +271,7 @@ public:
   bool TraverseForStmt(ForStmt *forStmt) {
     // Get init variable
     Stmt* initStmt = forStmt->getInit();
-    DeclarativeCheckingVisitor InitFinder(Context, Alpha, Beta, Gamma);
+    DeclarativeCheckingFunctionVisitor InitFinder(Context, Alpha, Beta, Gamma);
     InitFinder.TraverseStmt(initStmt);
     map<string, bool> Alpha1 = InitFinder.getAlpha();
     map<string, set<string>> Beta1 = InitFinder.getBeta();
@@ -277,7 +279,7 @@ public:
 
     // Get Body
     Stmt* bodyStmt = forStmt->getBody();
-    DeclarativeCheckingVisitor Visitor(Context, Alpha1, Beta1, Gamma1);
+    DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha1, Beta1, Gamma1);
     Visitor.TraverseStmt(bodyStmt);
     map<string, bool> Alpha2 = Visitor.getAlpha();
 
@@ -343,10 +345,36 @@ private:
 
 };
 
+/* -------------------- Declarative Checker ----------------------- */
+
+// Recurse through all AST
+class DeclarativeCheckingVisitor
+  : public RecursiveASTVisitor<DeclarativeCheckingVisitor> {
+public:
+  explicit DeclarativeCheckingVisitor(ASTContext *Context)
+  : Context(Context) {}
+
+  bool TraverseFunctionDecl(FunctionDecl *functionDecl){
+    DeclarativeCheckingFunctionVisitor Visitor(
+      Context,
+      map<string, bool>(),
+      map<string, set<string>>(),
+      map<string, set<string>>()
+    );
+    Visitor.TraverseDecl(functionDecl);
+    return true;
+  }
+
+private:
+  ASTContext *Context;
+};
+
+/* ----------------------- Setup ---------------------- */
+
 class DeclarativeCheckingConsumer : public clang::ASTConsumer {
 public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context)
-    : Visitor(Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
+    : Visitor(Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     Visitor.TraverseDecl(Context.getTranslationUnitDecl());
@@ -371,11 +399,3 @@ int main(int argc, const char **argv) {
                  OptionsParser.getSourcePathList());
   return Tool.run(newFrontendActionFactory<DeclarativeCheckingAction>().get());
 }
-
-/*
-int main(int argc, char **argv) {
-  if (argc > 1) {
-    clang::tooling::runToolOnCode(std::make_unique<DeclarativeCheckingAction>(), argv[1]);
-  }
-}
-*/
