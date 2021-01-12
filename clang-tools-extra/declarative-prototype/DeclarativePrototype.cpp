@@ -355,12 +355,19 @@ public:
   : Context(Context) {}
 
   bool TraverseFunctionDecl(FunctionDecl *functionDecl){
-    DeclarativeCheckingFunctionVisitor Visitor(
-      Context,
-      map<string, bool>(),
-      map<string, set<string>>(),
-      map<string, set<string>>()
-    );
+
+    map<string, bool> Alpha;
+    map<string, set<string>> Beta; 
+    map<string, set<string>> Gamma;
+    
+    for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
+      string name = functionDecl->getParamDecl(i)->getNameAsString();
+      Alpha.insert(pair<string, bool>(name, true));
+      Beta.insert(pair<string, set<string>>(name, set<string>()));
+      Gamma.insert(pair<string, set<string>>(name, set<string>()));
+    }
+
+    DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha, Beta, Gamma);
     Visitor.TraverseDecl(functionDecl);
     return true;
   }
