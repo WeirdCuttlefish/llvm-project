@@ -5,6 +5,7 @@
 #include "clang/Tooling/Tooling.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "llvm/Support/CommandLine.h"
+#include "clang/Analysis/CallGraph.h"
 
 using namespace clang::tooling;
 using namespace llvm;
@@ -337,9 +338,8 @@ private:
 
   void CheckReassigment(set<string> Vars) {
     for (string v : Vars){
-      if (Alpha[v] == false){
+      if (Alpha[v] == false)
         llvm::outs() << "WARNING: The variable " << v << " is not updated.";
-      }
     }
   }
 
@@ -378,13 +378,33 @@ private:
 
 /* ----------------------- Setup ---------------------- */
 
+void PostTraverseCallGraph(CallGraphNode *root, DeclarativeCheckingVisitor &Visitor, set<string> &Visited){
+
+  for (CallGraphNode *c : root->callees()){
+    PostTraverseCallGraph(c, Visitor, Visited);
+  }
+
+  if (root->getDecl() != NULL &&
+        Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end())
+    return;
+
+  Visitor.TraverseDecl(root->getDecl());
+  
+  if (root->getDecl() != NULL)
+    Visited.insert(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString());
+}
+
 class DeclarativeCheckingConsumer : public clang::ASTConsumer {
 public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context)
     : Visitor(Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
-    Visitor.TraverseDecl(Context.getTranslationUnitDecl());
+    set<string> Visited;
+    CallGraph CG;
+    CG.addToCallGraph(Context.getTranslationUnitDecl());
+    CallGraphNode *root = CG.getRoot();
+    PostTraverseCallGraph(root, Visitor, Visited);
   }
 private:
   DeclarativeCheckingVisitor Visitor;
