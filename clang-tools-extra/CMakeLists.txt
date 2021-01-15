@@ -36,3 +36,4 @@ if (CLANG_ENABLE_CLANGD)
 endif()
 
 add_subdirectory(declarative-prototype)
+add_subdirectory(dump-all)

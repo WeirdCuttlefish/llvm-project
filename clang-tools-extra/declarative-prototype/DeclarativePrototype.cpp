@@ -296,6 +296,11 @@ public:
     return true;
   }
 
+  virtual bool TraverseFunctionDecl(FunctionDecl *functionDecl){
+    RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor>::TraverseFunctionDecl(functionDecl);
+    return true;
+  }
+
   map<string, bool> getAlpha(){
     return Alpha;
   }
@@ -351,15 +356,19 @@ private:
 class DeclarativeCheckingVisitor
   : public RecursiveASTVisitor<DeclarativeCheckingVisitor> {
 public:
-  explicit DeclarativeCheckingVisitor(ASTContext *Context)
-  : Context(Context) {}
+  explicit DeclarativeCheckingVisitor(
+    ASTContext *Context,
+    map<string, bool> Alpha,
+    map<string, set<string>> Beta,
+    map<string, set<string>> Gamma
+  )
+    : Context(Context),
+      Alpha(map<string, bool>(Alpha)),
+      Beta(map<string, set<string>>(Beta)),
+      Gamma(map<string, set<string>>(Gamma))
+      {}
 
   bool TraverseFunctionDecl(FunctionDecl *functionDecl){
-
-    map<string, bool> Alpha;
-    map<string, set<string>> Beta; 
-    map<string, set<string>> Gamma;
-    
     for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
       string name = functionDecl->getParamDecl(i)->getNameAsString();
       Alpha.insert(pair<string, bool>(name, true));
@@ -373,41 +382,69 @@ public:
   }
 
 private:
-  ASTContext *Context;
+  ASTContext *Context;    
+  map<string, bool> Alpha;
+  map<string, set<string>> Beta;
+  map<string, set<string>> Gamma;
 };
 
-/* ----------------------- Setup ---------------------- */
+// Work on Global Variables
+class DeclarativeCheckingFunctionVisitorGlobal
+  : public DeclarativeCheckingFunctionVisitor {
+public:
+  explicit DeclarativeCheckingFunctionVisitorGlobal(ASTContext *Context) :
+    DeclarativeCheckingFunctionVisitor(
+      Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
 
+  bool TraverseFunctionDecl(FunctionDecl *functionDecl){
+    return true;
+  }
+};
+
+// Post Traversal of CallGraph
 void PostTraverseCallGraph(CallGraphNode *root, DeclarativeCheckingVisitor &Visitor, set<string> &Visited){
-
   for (CallGraphNode *c : root->callees()){
     PostTraverseCallGraph(c, Visitor, Visited);
   }
-
   if (root->getDecl() != NULL &&
         Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end())
     return;
-
   Visitor.TraverseDecl(root->getDecl());
-  
   if (root->getDecl() != NULL)
     Visited.insert(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString());
 }
 
+// 
+
+/* ----------------------- Setup ---------------------- */
+
 class DeclarativeCheckingConsumer : public clang::ASTConsumer {
 public:
-  explicit DeclarativeCheckingConsumer(ASTContext *Context)
-    : Visitor(Context) {}
+  explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
+
+    // Work on global variables
+    DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor(&Context);
+    GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
+    
+    // Create DeclarativeCheckingVisitor
+    DeclarativeCheckingVisitor Visitor(
+      &Context,
+      GlobalVisitor.getAlpha(),
+      GlobalVisitor.getBeta(),
+      GlobalVisitor.getGamma()
+    );
+
+    // Work on functions in reverse call order
     set<string> Visited;
     CallGraph CG;
     CG.addToCallGraph(Context.getTranslationUnitDecl());
     CallGraphNode *root = CG.getRoot();
     PostTraverseCallGraph(root, Visitor, Visited);
+    
   }
-private:
-  DeclarativeCheckingVisitor Visitor;
+
 };
 
 class DeclarativeCheckingAction : public clang::ASTFrontendAction {
