@@ -1,3 +1,14 @@
+/*
+Declarative Prototype: This is a declarative verifier. 
+
+Including the following coding features will produced undefined results.
+  1. Pointers
+  2. Recursive Functions
+  3. Mutually Recursive Functions
+  4. Classes and Structs
+  5. If statements with variable declaration
+*/
+
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -103,25 +114,24 @@ void PrintDeclRefExprLoc(DeclRefExpr *Declaration, ASTContext *Context) {
 }
 
 
-// Collect variables inside expression
+/* 
+CollectDeclRefExprVisitor:
+Collects variables inside a statement
+*/
 class CollectDeclRefExprVisitor
   : public RecursiveASTVisitor<CollectDeclRefExprVisitor> {
 public:
   explicit CollectDeclRefExprVisitor() {}
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration) {
-
     if(Declaration == 0)
       return true;
-
     if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
       string name = VarDeclToString(VD);
       Variables.insert(name);
     }
-
     return true;
   }
-
   set<string> getVariable(){
     return Variables;
   }
@@ -130,9 +140,10 @@ private:
   set<string> Variables;
 };
 
-/* ------------- Declarative Checker For Each Function ----------------------- */
-
-// Recurse through all AST
+/* 
+DeclarativeCheckingFunctionVisitor:
+A Declarative Checker that is works on function subtrees
+*/
 class DeclarativeCheckingFunctionVisitor
   : public RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor> {
 public:
@@ -208,12 +219,25 @@ public:
     return true;
   }
 
+  virtual bool TraverseFunctionDecl(FunctionDecl *functionDecl){
+    for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
+      string name = functionDecl->getParamDecl(i)->getNameAsString();
+      Alpha.insert(pair<string, bool>(name, true));
+      Beta.insert(pair<string, set<string>>(name, set<string>()));
+      Gamma.insert(pair<string, set<string>>(name, set<string>()));
+    }
+
+    TraverseStmt(functionDecl->getBody());
+    return true;
+  }
+
   bool TraverseUnaryOperator(UnaryOperator *unaryOperator){
     if (unaryOperator->isIncrementOp() || unaryOperator->isDecrementOp()){
       Expr* var = unaryOperator->getSubExpr();
       string varname = DeclRefExprToString(dyn_cast<DeclRefExpr>(var));
       reassign(varname);
     } else {
+      // TODO: Fix this to unaryOperator body 
       RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor>::TraverseUnaryOperator(unaryOperator);
     }
     return true;
@@ -296,11 +320,6 @@ public:
     return true;
   }
 
-  virtual bool TraverseFunctionDecl(FunctionDecl *functionDecl){
-    RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor>::TraverseFunctionDecl(functionDecl);
-    return true;
-  }
-
   map<string, bool> getAlpha(){
     return Alpha;
   }
@@ -350,45 +369,10 @@ private:
 
 };
 
-/* -------------------- Declarative Checker ----------------------- */
-
-// Recurse through all AST
-class DeclarativeCheckingVisitor
-  : public RecursiveASTVisitor<DeclarativeCheckingVisitor> {
-public:
-  explicit DeclarativeCheckingVisitor(
-    ASTContext *Context,
-    map<string, bool> Alpha,
-    map<string, set<string>> Beta,
-    map<string, set<string>> Gamma
-  )
-    : Context(Context),
-      Alpha(map<string, bool>(Alpha)),
-      Beta(map<string, set<string>>(Beta)),
-      Gamma(map<string, set<string>>(Gamma))
-      {}
-
-  bool TraverseFunctionDecl(FunctionDecl *functionDecl){
-    for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
-      string name = functionDecl->getParamDecl(i)->getNameAsString();
-      Alpha.insert(pair<string, bool>(name, true));
-      Beta.insert(pair<string, set<string>>(name, set<string>()));
-      Gamma.insert(pair<string, set<string>>(name, set<string>()));
-    }
-
-    DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha, Beta, Gamma);
-    Visitor.TraverseDecl(functionDecl);
-    return true;
-  }
-
-private:
-  ASTContext *Context;    
-  map<string, bool> Alpha;
-  map<string, set<string>> Beta;
-  map<string, set<string>> Gamma;
-};
-
-// Work on Global Variables
+/* 
+DeclarativeCheckingFunctionVisitorGlobal:
+A Declarative Checker that is works global variable declarations before functions are defined.
+*/
 class DeclarativeCheckingFunctionVisitorGlobal
   : public DeclarativeCheckingFunctionVisitor {
 public:
@@ -399,52 +383,58 @@ public:
   bool TraverseFunctionDecl(FunctionDecl *functionDecl){
     return true;
   }
+
+private:
+  map<string, bool> Alpha;
+  map<string, set<string>> Beta;
+  map<string, set<string>> Gamma;
 };
 
-// Post Traversal of CallGraph
-void PostTraverseCallGraph(CallGraphNode *root, DeclarativeCheckingVisitor &Visitor, set<string> &Visited){
-  for (CallGraphNode *c : root->callees()){
-    PostTraverseCallGraph(c, Visitor, Visited);
-  }
-  if (root->getDecl() != NULL &&
-        Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end())
-    return;
-  Visitor.TraverseDecl(root->getDecl());
-  if (root->getDecl() != NULL)
-    Visited.insert(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString());
-}
-
-// 
-
-/* ----------------------- Setup ---------------------- */
-
+/*
+DeclarativeCheckingConsumer:
+1. Invokes DeclarativeCheckingFunctionVisitorGlobal on global variables
+2. Creates a call graph
+3. Invokes a unique DeclarativeCheckingFunctionVisitor to each function in call graph in postorder
+*/
 class DeclarativeCheckingConsumer : public clang::ASTConsumer {
 public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
-
     // Work on global variables
     DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor(&Context);
     GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
-    
-    // Create DeclarativeCheckingVisitor
-    DeclarativeCheckingVisitor Visitor(
-      &Context,
-      GlobalVisitor.getAlpha(),
-      GlobalVisitor.getBeta(),
-      GlobalVisitor.getGamma()
-    );
 
     // Work on functions in reverse call order
     set<string> Visited;
     CallGraph CG;
     CG.addToCallGraph(Context.getTranslationUnitDecl());
     CallGraphNode *root = CG.getRoot();
-    PostTraverseCallGraph(root, Visitor, Visited);
-    
+    PostTraverseCallGraph(root, Visited, GlobalVisitor, Context);
   }
 
+private:
+  // Post Traversal of CallGraph
+  void PostTraverseCallGraph(CallGraphNode *root, set<string> &Visited, 
+          DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context){
+    for (CallGraphNode *c : root->callees()){
+      PostTraverseCallGraph(c, Visited, GlobalVisitor, Context);
+    }
+    if (root->getDecl() != NULL &&
+          Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end())
+      return;
+
+    DeclarativeCheckingFunctionVisitor Visitor(
+        &Context,
+        GlobalVisitor.getAlpha(),
+        GlobalVisitor.getBeta(),
+        GlobalVisitor.getGamma()
+    );
+    Visitor.TraverseDecl(root->getDecl());
+
+    if (root->getDecl() != NULL)
+      Visited.insert(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString());
+  }
 };
 
 class DeclarativeCheckingAction : public clang::ASTFrontendAction {
