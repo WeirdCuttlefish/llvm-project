@@ -113,7 +113,6 @@ void PrintDeclRefExprLoc(DeclRefExpr *Declaration, ASTContext *Context) {
                   << FullLocation.getSpellingColumnNumber() << "\n";
 }
 
-
 /* 
 CollectDeclRefExprVisitor:
 Collects variables inside a statement
@@ -151,9 +150,11 @@ public:
     ASTContext *Context,
     map<string, bool> Alpha,
     map<string, set<string>> Beta,
-    map<string, set<string>> Gamma
+    map<string, set<string>> Gamma,
+    map<string, set<string>> *FunctionChanges
   )
     : Context(Context),
+      FunctionChanges(FunctionChanges),
       Alpha(map<string, bool>(Alpha)),
       Beta(map<string, set<string>>(Beta)),
       Gamma(map<string, set<string>>(Gamma))
@@ -251,11 +252,11 @@ public:
 
     if (elseStmt){
       // Recurse on body
-      DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma, FunctionChanges);
       Visitor1.TraverseStmt(thenStmt);
 
       // Recurse on else
-      DeclarativeCheckingFunctionVisitor Visitor2(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingFunctionVisitor Visitor2(Context, Alpha, Beta, Gamma, FunctionChanges);
       Visitor2.TraverseStmt(elseStmt);
 
       // Get Alphas
@@ -273,7 +274,7 @@ public:
       }
     } else {
       // Recurse on body
-      DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma);
+      DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma, FunctionChanges);
       Visitor1.TraverseStmt(thenStmt);
 
       // Get Alpha
@@ -296,7 +297,7 @@ public:
   bool TraverseForStmt(ForStmt *forStmt) {
     // Get init variable
     Stmt* initStmt = forStmt->getInit();
-    DeclarativeCheckingFunctionVisitor InitFinder(Context, Alpha, Beta, Gamma);
+    DeclarativeCheckingFunctionVisitor InitFinder(Context, Alpha, Beta, Gamma, FunctionChanges);
     InitFinder.TraverseStmt(initStmt);
     map<string, bool> Alpha1 = InitFinder.getAlpha();
     map<string, set<string>> Beta1 = InitFinder.getBeta();
@@ -304,7 +305,7 @@ public:
 
     // Get Body
     Stmt* bodyStmt = forStmt->getBody();
-    DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha1, Beta1, Gamma1);
+    DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha1, Beta1, Gamma1, FunctionChanges);
     Visitor.TraverseStmt(bodyStmt);
     map<string, bool> Alpha2 = Visitor.getAlpha();
 
@@ -334,6 +335,7 @@ public:
 
 private:
   ASTContext *Context;
+  map<string, set<string>> *FunctionChanges;
 
   // Contexts
   map<string, bool> Alpha;         // Variable to valid bit
@@ -376,9 +378,13 @@ A Declarative Checker that is works global variable declarations before function
 class DeclarativeCheckingFunctionVisitorGlobal
   : public DeclarativeCheckingFunctionVisitor {
 public:
-  explicit DeclarativeCheckingFunctionVisitorGlobal(ASTContext *Context) :
+  explicit DeclarativeCheckingFunctionVisitorGlobal(ASTContext *Context, map<string, set<string>> *FunctionChanges) :
     DeclarativeCheckingFunctionVisitor(
-      Context, map<string, bool>(), map<string, set<string>>(), map<string, set<string>>()) {}
+      Context, 
+      map<string, bool>(), 
+      map<string, set<string>>(), 
+      map<string, set<string>>(), 
+      FunctionChanges) {}
 
   bool TraverseFunctionDecl(FunctionDecl *functionDecl){
     return true;
@@ -401,8 +407,11 @@ public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
+    // Function map
+    map<string, set<string>> FunctionChanges;
+
     // Work on global variables
-    DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor(&Context);
+    DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor(&Context, &FunctionChanges);
     GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
 
     // Work on functions in reverse call order
@@ -410,15 +419,15 @@ public:
     CallGraph CG;
     CG.addToCallGraph(Context.getTranslationUnitDecl());
     CallGraphNode *root = CG.getRoot();
-    PostTraverseCallGraph(root, Visited, GlobalVisitor, Context);
+    PostTraverseCallGraph(root, Visited, GlobalVisitor, Context, FunctionChanges);
   }
 
 private:
   // Post Traversal of CallGraph
   void PostTraverseCallGraph(CallGraphNode *root, set<string> &Visited, 
-          DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context){
+          DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context, map<string, set<string>> &FunctionChanges){
     for (CallGraphNode *c : root->callees()){
-      PostTraverseCallGraph(c, Visited, GlobalVisitor, Context);
+      PostTraverseCallGraph(c, Visited, GlobalVisitor, Context, FunctionChanges);
     }
     if (root->getDecl() != NULL &&
           Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end())
@@ -428,7 +437,8 @@ private:
         &Context,
         GlobalVisitor.getAlpha(),
         GlobalVisitor.getBeta(),
-        GlobalVisitor.getGamma()
+        GlobalVisitor.getGamma(),
+        &FunctionChanges
     );
     Visitor.TraverseDecl(root->getDecl());
 
