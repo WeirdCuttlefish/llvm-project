@@ -29,6 +29,8 @@ using namespace clang;
 using namespace clang;
 using namespace std;
 
+enum Validity {Valid, Invalid, Undecided};
+
 string VarDeclToString(VarDecl *x){
   return x->getNameAsString();
 }
@@ -71,12 +73,16 @@ void PrintBeta(map<string, set<string>> m) {
   llvm::outs() << "Beta End:\n";
 }
 
-void PrintAlpha(map<string, bool> m) {
+void PrintAlpha(map<string, Validity> m) {
   llvm::outs() << "Alpha Begin:\n";
-  map<string, bool>::iterator it;
+  map<string, Validity>::iterator it;
   for (it = m.begin(); it != m.end(); it++)
   {
-    llvm::outs() << "Variable " << it->first << " is: " << it->second << "\n";
+    switch(it->second) {
+      case Valid: llvm::outs() << "Variable " << it->first << " is: valid.\n"; break;
+      case Invalid: llvm::outs() << "Variable " << it->first << " is: invalid.\n"; break;
+      case Undecided: llvm::outs() << "Variable " << it->first << " is: undecided.\n"; break;
+    }
   }
   llvm::outs() << "Alpha End:\n";
 }
@@ -148,14 +154,14 @@ class DeclarativeCheckingFunctionVisitor
 public:
   explicit DeclarativeCheckingFunctionVisitor(
     ASTContext *Context,
-    map<string, bool> Alpha,
+    map<string, Validity> Alpha,
     map<string, set<string>> Beta,
     map<string, set<string>> Gamma,
     map<string, set<string>> *FunctionChanges
   )
     : Context(Context),
       FunctionChanges(FunctionChanges),
-      Alpha(map<string, bool>(Alpha)),
+      Alpha(map<string, Validity>(Alpha)),
       Beta(map<string, set<string>>(Beta)),
       Gamma(map<string, set<string>>(Gamma))
       {}
@@ -169,11 +175,11 @@ public:
     if (Declaration->getAnyInitializer() != NULL){
       CollectDeclRefExprVisitor CDREVisitor;
       CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Initializer));
-      Alpha.insert(std::pair<string, bool>(name, true));
+      Alpha.insert(std::pair<string, Validity>(name, Valid));
       Gamma.insert(std::pair<string, set<string>>(name, CDREVisitor.getVariable()));
       UpdateClients(name, CDREVisitor.getVariable());
     } else {
-      Alpha.insert(std::pair<string, bool>(name, true));
+      Alpha.insert(std::pair<string, Validity>(name, Valid));
       Gamma.insert(std::pair<string, set<string>>(name, set<string>()));
     };
     Beta.insert(std::pair<string, set<string>>(name, set<string>()));
@@ -183,7 +189,7 @@ public:
   }
 
   void reassign(string name){
-    Alpha[name] = true;
+    Alpha[name] = Valid;
     set<string> Clients = Beta[name];
     for (string c : Clients){
       Invalidate(c);
@@ -209,7 +215,7 @@ public:
     if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
       string name = VarDeclToString(VD);
       FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
-      if (Alpha[name] == false){
+      if (Alpha[name] == Invalid){
         llvm::outs() << "WARNING! " << name << " is not updated! ";
         if (FullLocation.isValid())
           llvm::outs() << "This error is at: "
@@ -223,7 +229,7 @@ public:
   virtual bool TraverseFunctionDecl(FunctionDecl *functionDecl){
     for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
       string name = functionDecl->getParamDecl(i)->getNameAsString();
-      Alpha.insert(pair<string, bool>(name, true));
+      Alpha.insert(pair<string, Validity>(name, Valid));
       Beta.insert(pair<string, set<string>>(name, set<string>()));
       Gamma.insert(pair<string, set<string>>(name, set<string>()));
     }
@@ -260,16 +266,16 @@ public:
       Visitor2.TraverseStmt(elseStmt);
 
       // Get Alphas
-      map<string, bool> Alpha1 = Visitor1.getAlpha();
-      map<string, bool> Alpha2 = Visitor2.getAlpha();
+      map<string, Validity> Alpha1 = Visitor1.getAlpha();
+      map<string, Validity> Alpha2 = Visitor2.getAlpha();
 
       // Union
       for (auto const& pair : Alpha){
         string var = pair.first;
-        if (Alpha1[var] && Alpha2[var]){
-          Alpha[var] = true;
+        if (Alpha1[var] == Valid && Alpha2[var] == Valid){
+          Alpha[var] = Valid;
         } else {
-          Alpha[var] = false;
+          Alpha[var] = Invalid;
         }
       }
     } else {
@@ -278,15 +284,15 @@ public:
       Visitor1.TraverseStmt(thenStmt);
 
       // Get Alpha
-      map<string, bool> Alpha1 = Visitor1.getAlpha();
+      map<string, Validity> Alpha1 = Visitor1.getAlpha();
 
       // Union
       for (auto const& pair : Alpha){
         string var = pair.first;
-        if (Alpha[var] && Alpha1[var]){
-          Alpha[var] = true;
+        if (Alpha[var] == Valid && Alpha1[var] == Valid){
+          Alpha[var] = Valid;
         } else {
-          Alpha[var] = false;
+          Alpha[var] = Invalid;
         }
       }
 
@@ -299,7 +305,7 @@ public:
     Stmt* initStmt = forStmt->getInit();
     DeclarativeCheckingFunctionVisitor InitFinder(Context, Alpha, Beta, Gamma, FunctionChanges);
     InitFinder.TraverseStmt(initStmt);
-    map<string, bool> Alpha1 = InitFinder.getAlpha();
+    map<string, Validity> Alpha1 = InitFinder.getAlpha();
     map<string, set<string>> Beta1 = InitFinder.getBeta();
     map<string, set<string>> Gamma1 = InitFinder.getGamma();
 
@@ -307,21 +313,21 @@ public:
     Stmt* bodyStmt = forStmt->getBody();
     DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha1, Beta1, Gamma1, FunctionChanges);
     Visitor.TraverseStmt(bodyStmt);
-    map<string, bool> Alpha2 = Visitor.getAlpha();
+    map<string, Validity> Alpha2 = Visitor.getAlpha();
 
     // Union
     for (auto const& pair : Alpha){
       string var = pair.first;
-      if (Alpha[var] && Alpha2[var]){
-        Alpha[var] = true;
+      if (Alpha[var] == Valid && Alpha2[var] == Valid){
+        Alpha[var] = Valid;
       } else {
-        Alpha[var] = false;
+        Alpha[var] = Invalid;
       }
     }
     return true;
   }
 
-  map<string, bool> getAlpha(){
+  map<string, Validity> getAlpha(){
     return Alpha;
   }
 
@@ -333,12 +339,22 @@ public:
     return Gamma;
   }
 
+  // TODO: Gets the assumed to be true variables
+  set<string> getGlobalPreconditions(){
+    return set<string>();
+  }
+
+  // TODO: Gets the variables that have been changed.
+  set<string> getGlobalPostConditions(){
+    return set<string>();
+  }
+
 private:
   ASTContext *Context;
   map<string, set<string>> *FunctionChanges;
 
   // Contexts
-  map<string, bool> Alpha;         // Variable to valid bit
+  map<string, Validity> Alpha;         // Variable to valid bit
   map<string, set<string>> Beta;   // Variable to clients
   map<string, set<string>> Gamma;  // Variable to dependencies
 
@@ -355,7 +371,7 @@ private:
   }
 
   void Invalidate(string Var) {
-    Alpha[Var] = false;
+    Alpha[Var] = Invalid;
     set<string> Clients = Beta[Var];
     for (string c : Clients){
       Invalidate(c);
@@ -364,7 +380,7 @@ private:
 
   void CheckReassigment(set<string> Vars) {
     for (string v : Vars){
-      if (Alpha[v] == false)
+      if (Alpha[v] == Invalid)
         llvm::outs() << "WARNING: The variable " << v << " is not updated.";
     }
   }
@@ -381,7 +397,7 @@ public:
   explicit DeclarativeCheckingFunctionVisitorGlobal(ASTContext *Context, map<string, set<string>> *FunctionChanges) :
     DeclarativeCheckingFunctionVisitor(
       Context, 
-      map<string, bool>(), 
+      map<string, Validity>(), 
       map<string, set<string>>(), 
       map<string, set<string>>(), 
       FunctionChanges) {}
@@ -391,7 +407,7 @@ public:
   }
 
 private:
-  map<string, bool> Alpha;
+  map<string, Validity> Alpha;
   map<string, set<string>> Beta;
   map<string, set<string>> Gamma;
 };
