@@ -226,7 +226,7 @@ public:
     return true;
   }
 
-  virtual bool TraverseFunctionDecl(FunctionDecl *functionDecl){
+  bool TraverseFunctionDecl(FunctionDecl *functionDecl){
     for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
       string name = functionDecl->getParamDecl(i)->getNameAsString();
       Alpha.insert(pair<string, Validity>(name, Valid));
@@ -392,24 +392,65 @@ DeclarativeCheckingFunctionVisitorGlobal:
 A Declarative Checker that is works global variable declarations before functions are defined.
 */
 class DeclarativeCheckingFunctionVisitorGlobal
-  : public DeclarativeCheckingFunctionVisitor {
+  : public RecursiveASTVisitor<DeclarativeCheckingFunctionVisitorGlobal> {
 public:
-  explicit DeclarativeCheckingFunctionVisitorGlobal(ASTContext *Context, map<string, set<string>> *FunctionChanges) :
-    DeclarativeCheckingFunctionVisitor(
-      Context, 
-      map<string, Validity>(), 
-      map<string, set<string>>(), 
-      map<string, set<string>>(), 
-      FunctionChanges) {}
+  explicit DeclarativeCheckingFunctionVisitorGlobal() {}
+
+  // Find declaration statements
+  bool VisitVarDecl(VarDecl *Declaration) {
+    string name = VarDeclToString(Declaration);
+
+    // Modify Alpha, Beta, Gamma
+    Expr* Initializer = Declaration->getInit();
+    if (Declaration->getAnyInitializer() != NULL){
+      CollectDeclRefExprVisitor CDREVisitor;
+      CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Initializer));
+      Alpha.insert(std::pair<string, Validity>(name, Valid));
+      Gamma.insert(std::pair<string, set<string>>(name, CDREVisitor.getVariable()));
+      UpdateClients(name, CDREVisitor.getVariable());
+    } else {
+      Alpha.insert(std::pair<string, Validity>(name, Valid));
+      Gamma.insert(std::pair<string, set<string>>(name, set<string>()));
+    };
+    Beta.insert(std::pair<string, set<string>>(name, set<string>()));
+
+    return true;
+
+  }
 
   bool TraverseFunctionDecl(FunctionDecl *functionDecl){
     return true;
+  }
+  
+  map<string, Validity> getAlpha(){
+    return Alpha;
+  }
+
+  map<string, set<string>> getBeta(){
+    return Beta;
+  }
+
+  map<string, set<string>> getGamma(){
+    return Gamma;
   }
 
 private:
   map<string, Validity> Alpha;
   map<string, set<string>> Beta;
   map<string, set<string>> Gamma;
+
+  void UpdateClients(string Var, set<string> Dependencies) {
+    set<string>::iterator Dependency = Dependencies.begin();
+    while (Dependency != Dependencies.end())
+    {
+      string DependencyString{*Dependency};
+      if (Beta.find(DependencyString) == Beta.end())
+        Beta.insert(std::pair<string, set<string>>(DependencyString, set<string>()));
+      Beta[DependencyString].insert(Var);
+      Dependency++;
+    }
+  }
+
 };
 
 /*
@@ -427,7 +468,7 @@ public:
     map<string, set<string>> FunctionChanges;
 
     // Work on global variables
-    DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor(&Context, &FunctionChanges);
+    DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor;
     GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
 
     // Work on functions in reverse call order
