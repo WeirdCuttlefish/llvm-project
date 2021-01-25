@@ -7,6 +7,7 @@ Including the following coding features will produced undefined results.
   3. Mutually Recursive Functions
   4. Classes and Structs
   5. If statements with variable declaration
+  6. Scoping, global and reclaration in the function body
 */
 
 #include "clang/AST/ASTConsumer.h"
@@ -30,6 +31,12 @@ using namespace clang;
 using namespace std;
 
 enum Validity {Valid, Invalid, Undecided};
+
+struct Function {
+  string name;
+  set<string> Preconditions;    // Guaranteed valid going in
+  set<string> Postconditions;   // Guaranteed valid going out
+};
 
 string VarDeclToString(VarDecl *x){
   return x->getNameAsString();
@@ -157,7 +164,7 @@ public:
     map<string, Validity> Alpha,
     map<string, set<string>> Beta,
     map<string, set<string>> Gamma,
-    map<string, set<string>> *FunctionChanges
+    map<string, Function> *FunctionChanges
   )
     : Context(Context),
       FunctionChanges(FunctionChanges),
@@ -168,6 +175,7 @@ public:
 
   // Find declaration statements
   bool VisitVarDecl(VarDecl *Declaration) {
+    
     string name = VarDeclToString(Declaration);
 
     // Modify Alpha, Beta, Gamma
@@ -201,6 +209,9 @@ public:
     if (BinOperator->isAssignmentOp()) {
       DeclRefExpr *Declaration = dyn_cast<DeclRefExpr>(BinOperator->getLHS());
       string name = DeclRefExprToString(Declaration);
+      if (Alpha[name] == Undecided){
+        GlobalPreconditions.insert(name);
+      }
       reassign(name);
     }
     return true;
@@ -214,6 +225,12 @@ public:
 
     if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
       string name = VarDeclToString(VD);
+
+      if (Alpha[name] == Undecided){
+        GlobalPreconditions.insert(name);
+        Alpha[name] = Valid;
+      }
+
       FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
       if (Alpha[name] == Invalid){
         llvm::outs() << "WARNING! " << name << " is not updated! ";
@@ -242,6 +259,10 @@ public:
     if (unaryOperator->isIncrementOp() || unaryOperator->isDecrementOp()){
       Expr* var = unaryOperator->getSubExpr();
       string varname = DeclRefExprToString(dyn_cast<DeclRefExpr>(var));
+      if (Alpha[varname] ==  Undecided){
+        GlobalPreconditions.insert(varname);
+        Alpha[varname] = Valid;
+      }
       reassign(varname);
     } else {
       // TODO: Fix this to unaryOperator body 
@@ -339,24 +360,25 @@ public:
     return Gamma;
   }
 
-  // TODO: Gets the assumed to be true variables
   set<string> getGlobalPreconditions(){
-    return set<string>();
+    return GlobalPreconditions;
   }
 
-  // TODO: Gets the variables that have been changed.
   set<string> getGlobalPostConditions(){
     return set<string>();
   }
 
 private:
   ASTContext *Context;
-  map<string, set<string>> *FunctionChanges;
+  map<string, Function> *FunctionChanges;
 
   // Contexts
-  map<string, Validity> Alpha;         // Variable to valid bit
+  map<string, Validity> Alpha;     // Variable to valid bit
   map<string, set<string>> Beta;   // Variable to clients
   map<string, set<string>> Gamma;  // Variable to dependencies
+
+  set<string> GlobalPreconditions;  // Global Variables assumed to be true
+  set<string> GlobalPostConditions; // Global Variables that exits as true
 
   void UpdateClients(string Var, set<string> Dependencies) {
     set<string>::iterator Dependency = Dependencies.begin();
@@ -405,11 +427,11 @@ public:
     if (Declaration->getAnyInitializer() != NULL){
       CollectDeclRefExprVisitor CDREVisitor;
       CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Initializer));
-      Alpha.insert(std::pair<string, Validity>(name, Valid));
+      Alpha.insert(std::pair<string, Validity>(name, Undecided));
       Gamma.insert(std::pair<string, set<string>>(name, CDREVisitor.getVariable()));
       UpdateClients(name, CDREVisitor.getVariable());
     } else {
-      Alpha.insert(std::pair<string, Validity>(name, Valid));
+      Alpha.insert(std::pair<string, Validity>(name, Undecided));
       Gamma.insert(std::pair<string, set<string>>(name, set<string>()));
     };
     Beta.insert(std::pair<string, set<string>>(name, set<string>()));
@@ -465,7 +487,7 @@ public:
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
     // Function map
-    map<string, set<string>> FunctionChanges;
+    map<string, Function> FunctionChanges;
 
     // Work on global variables
     DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor;
@@ -482,7 +504,7 @@ public:
 private:
   // Post Traversal of CallGraph
   void PostTraverseCallGraph(CallGraphNode *root, set<string> &Visited, 
-          DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context, map<string, set<string>> &FunctionChanges){
+          DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context, map<string, Function> &FunctionChanges){
     for (CallGraphNode *c : root->callees()){
       PostTraverseCallGraph(c, Visited, GlobalVisitor, Context, FunctionChanges);
     }
@@ -498,6 +520,14 @@ private:
         &FunctionChanges
     );
     Visitor.TraverseDecl(root->getDecl());
+
+    for (string n : Visitor.getGlobalPreconditions()){
+      llvm::outs() << n;
+    }
+
+    for (string n : Visitor.getGlobalPostConditions()){
+      llvm::outs() << n;
+    }
 
     if (root->getDecl() != NULL)
       Visited.insert(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString());
