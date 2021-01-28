@@ -22,13 +22,11 @@ Including the following coding features will produced undefined results.
 using namespace clang::tooling;
 using namespace llvm;
 using namespace clang;
+using namespace std;
 
 #include <set>
 #include <map>
 #include <string>
-
-using namespace clang;
-using namespace std;
 
 enum Validity {Valid, Invalid, Undecided};
 
