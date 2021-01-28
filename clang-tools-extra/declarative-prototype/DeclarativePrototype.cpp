@@ -35,7 +35,7 @@ enum Validity {Valid, Invalid, Undecided};
 struct Function {
   string name;
   set<string> Preconditions;    // Guaranteed valid going in
-  map<string, Validity> Postconditions;   // Guaranteed valid going out
+  set<string> Postconditions;   // Guaranteed valid going out
 };
 
 string VarDeclToString(VarDecl *x){
@@ -215,9 +215,15 @@ public:
 
   // Find reassigment statements
   bool VisitBinaryOperator(BinaryOperator *BinOperator) {
+
     if (BinOperator->isAssignmentOp()) {
       DeclRefExpr *Declaration = dyn_cast<DeclRefExpr>(BinOperator->getLHS());
       string name = DeclRefExprToString(Declaration);
+
+      if (GlobalAlpha.find(name) != GlobalAlpha.end()){
+        GlobalPostConditions.insert(name);
+      }
+
       if (Alpha[name] == Undecided){
         GlobalPreconditions.insert(name);
       }
@@ -300,7 +306,7 @@ public:
     auto PFun = FunctionChanges->find(CalleeName);
     if (PFun != FunctionChanges->end()){
       set<string> Preconditions = PFun->second.Preconditions;
-      map<string, Validity> Postconditions = PFun->second.Postconditions;
+      set<string> Postconditions = PFun->second.Postconditions;
 
       // Check for preconditions
       for (string s : Preconditions){
@@ -309,11 +315,8 @@ public:
       }
 
       // Set postconditions
-      for (std::pair<string, Validity> p : Postconditions){
-        Alpha[p.first] = p.second;
-        if (p.second == Invalid){
-          Invalidate(p.first);
-        }
+      for (string p : Postconditions){
+        reassign(p);
       }
 
     } else {
@@ -416,13 +419,8 @@ public:
     return GlobalPreconditions;
   }
 
-  map<string, Validity> getGlobalPostConditions(){
-    map<string, Validity> Output;
-    for (auto const& pair : GlobalAlpha){
-      string var = pair.first;
-      Output.insert(std::pair<string, Validity>(var, Alpha[var]));
-    }
-    return Output;
+  set<string> getGlobalPostConditions(){
+    return GlobalPostConditions;
   }
 
   Function getFunctionDetails(){

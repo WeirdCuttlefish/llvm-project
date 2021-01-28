@@ -1,7 +1,7 @@
 /*
 Global function with global variable modification in call and error with local varible dependent on other global variable.
 Output: 
-WARNING! a is not updated! This error is at: 18:5
+WARNING! a is not updated! This error is at: 17:5
 */
 
 int z = 0;
