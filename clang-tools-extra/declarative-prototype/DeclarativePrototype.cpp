@@ -35,7 +35,7 @@ enum Validity {Valid, Invalid, Undecided};
 struct Function {
   string name;
   set<string> Preconditions;    // Guaranteed valid going in
-  set<string> Postconditions;   // Guaranteed valid going out
+  map<string, Validity> Postconditions;   // Guaranteed valid going out
 };
 
 string VarDeclToString(VarDecl *x){
@@ -141,6 +141,9 @@ public:
     if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
       string name = VarDeclToString(VD);
       Variables.insert(name);
+    } else if (FunctionDecl* FD = dyn_cast<FunctionDecl>(Declaration->getDecl())) {
+      string name = FD->getNameAsString();
+      Caller.insert(name);
     }
     return true;
   }
@@ -148,8 +151,13 @@ public:
     return Variables;
   }
 
+  set<string> getCaller(){
+    return Caller;
+  }
+
 private:
   set<string> Variables;
+  set<string> Caller;
 };
 
 /* 
@@ -168,6 +176,7 @@ public:
   )
     : Context(Context),
       FunctionChanges(FunctionChanges),
+      GlobalAlpha(map<string, Validity>(Alpha)),
       Alpha(map<string, Validity>(Alpha)),
       Beta(map<string, set<string>>(Beta)),
       Gamma(map<string, set<string>>(Gamma))
@@ -246,11 +255,11 @@ public:
   bool TraverseFunctionDecl(FunctionDecl *functionDecl){
     for (unsigned int i=0; i<functionDecl->getNumParams(); i++){
       string name = functionDecl->getParamDecl(i)->getNameAsString();
+      FunctionName = name;
       Alpha.insert(pair<string, Validity>(name, Valid));
       Beta.insert(pair<string, set<string>>(name, set<string>()));
       Gamma.insert(pair<string, set<string>>(name, set<string>()));
     }
-
     TraverseStmt(functionDecl->getBody());
     return true;
   }
@@ -268,6 +277,49 @@ public:
       // TODO: Fix this to unaryOperator body 
       RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor>::TraverseUnaryOperator(unaryOperator);
     }
+    return true;
+  }
+
+  bool TraverseCallExpr(CallExpr *CallExpr){
+
+    // Work on arguments of Callee
+    for (CallExpr::arg_iterator i = CallExpr->arg_begin(); i != CallExpr->arg_end(); ++i){ 
+        Stmt *arg = dyn_cast<Stmt>(*i);
+        TraverseStmt(arg);
+    } 
+    
+    // Get name of callee
+    Expr* Callee = CallExpr->getCallee();
+    CollectDeclRefExprVisitor CDREVisitor;
+    CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Callee));
+    if (CDREVisitor.getCaller().size() != 1)
+      llvm::outs() << "FOUND A CALL EXPRESSION WITH MULTILPE DECLS\n";
+    string CalleeName = *(CDREVisitor.getCaller().begin());
+
+    // Use FunctionChanges
+    auto PFun = FunctionChanges->find(CalleeName);
+    if (PFun != FunctionChanges->end()){
+      set<string> Preconditions = PFun->second.Preconditions;
+      map<string, Validity> Postconditions = PFun->second.Postconditions;
+
+      // Check for preconditions
+      for (string s : Preconditions){
+        if (Alpha[s] != Valid)
+          llvm::outs() << "WARNING! " << s << " is not updated before the function call " << CalleeName << "!\n";
+      }
+
+      // Set postconditions
+      for (std::pair<string, Validity> p : Postconditions){
+        Alpha[p.first] = p.second;
+        if (p.second == Invalid){
+          Invalidate(p.first);
+        }
+      }
+
+    } else {
+      llvm::outs() << "DID NOT FIND CALL FUNCTION FOR " << CalleeName << "\n";
+    }
+
     return true;
   }
 
@@ -364,8 +416,21 @@ public:
     return GlobalPreconditions;
   }
 
-  set<string> getGlobalPostConditions(){
-    return set<string>();
+  map<string, Validity> getGlobalPostConditions(){
+    map<string, Validity> Output;
+    for (auto const& pair : GlobalAlpha){
+      string var = pair.first;
+      Output.insert(std::pair<string, Validity>(var, Alpha[var]));
+    }
+    return Output;
+  }
+
+  Function getFunctionDetails(){
+    return {
+      .name = FunctionName,
+      .Preconditions = getGlobalPreconditions(),
+      .Postconditions = getGlobalPostConditions(),
+    };
   }
 
 private:
@@ -377,8 +442,12 @@ private:
   map<string, set<string>> Beta;   // Variable to clients
   map<string, set<string>> Gamma;  // Variable to dependencies
 
+  string FunctionName;
+
   set<string> GlobalPreconditions;  // Global Variables assumed to be true
   set<string> GlobalPostConditions; // Global Variables that exits as true
+
+  map<string, Validity> GlobalAlpha;          // Alpha for Global Variables
 
   void UpdateClients(string Var, set<string> Dependencies) {
     set<string>::iterator Dependency = Dependencies.begin();
@@ -486,6 +555,7 @@ public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
+
     // Function map
     map<string, Function> FunctionChanges;
 
@@ -497,40 +567,56 @@ public:
     set<string> Visited;
     CallGraph CG;
     CG.addToCallGraph(Context.getTranslationUnitDecl());
+    CallGraphNode *origin = CG.getRoot();
     CallGraphNode *root = CG.getRoot();
-    PostTraverseCallGraph(root, Visited, GlobalVisitor, Context, FunctionChanges);
+    PostTraverseCallGraph(root, origin, Visited, GlobalVisitor, Context, FunctionChanges);
   }
 
 private:
   // Post Traversal of CallGraph
-  void PostTraverseCallGraph(CallGraphNode *root, set<string> &Visited, 
+  void PostTraverseCallGraph(CallGraphNode *root, CallGraphNode *origin, set<string> &Visited, 
           DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context, map<string, Function> &FunctionChanges){
-    for (CallGraphNode *c : root->callees()){
-      PostTraverseCallGraph(c, Visited, GlobalVisitor, Context, FunctionChanges);
-    }
-    if (root->getDecl() != NULL &&
-          Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end())
+
+    if (root == NULL){
       return;
-
-    DeclarativeCheckingFunctionVisitor Visitor(
-        &Context,
-        GlobalVisitor.getAlpha(),
-        GlobalVisitor.getBeta(),
-        GlobalVisitor.getGamma(),
-        &FunctionChanges
-    );
-    Visitor.TraverseDecl(root->getDecl());
-
-    for (string n : Visitor.getGlobalPreconditions()){
-      llvm::outs() << n;
     }
+    else if (root == origin){
+      for (CallGraphNode *c : root->callees()){
+        PostTraverseCallGraph(c, origin, Visited, GlobalVisitor, Context, FunctionChanges);
+      }
+    } else {
+      if (root->getDecl() != NULL &&
+          Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end()){
+        return;
+      }
 
-    for (string n : Visitor.getGlobalPostConditions()){
-      llvm::outs() << n;
+      for (CallGraphNode *c : root->callees()){
+        PostTraverseCallGraph(c, origin, Visited, GlobalVisitor, Context, FunctionChanges);
+      }
+
+      map<string, Validity> GlobalAlpha = GlobalVisitor.getAlpha();
+
+      // If the function is main assume the global variables to be valid
+      string FunctionName = dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString();
+      if (FunctionName == "main"){
+        for (std::pair<string,Validity> p : GlobalAlpha){
+          GlobalAlpha[p.first] = Valid;
+        }
+      }
+
+      DeclarativeCheckingFunctionVisitor Visitor(
+          &Context,
+          GlobalAlpha,
+          GlobalVisitor.getBeta(),
+          GlobalVisitor.getGamma(),
+          &FunctionChanges
+      );
+
+      Visitor.TraverseDecl(root->getDecl());
+      FunctionChanges.insert(std::pair<string, Function>(FunctionName, Visitor.getFunctionDetails()));
+
+      Visited.insert(FunctionName);
     }
-
-    if (root->getDecl() != NULL)
-      Visited.insert(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString());
   }
 };
 
