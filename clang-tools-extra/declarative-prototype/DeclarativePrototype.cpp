@@ -28,6 +28,7 @@ using namespace std;
 #include <map>
 #include <string>
 
+
 enum Validity {Valid, Invalid, Undecided};
 
 struct Function {
@@ -182,7 +183,12 @@ public:
 
   // Find declaration statements
   bool VisitVarDecl(VarDecl *Declaration) {
-    
+    modify_env_at_declarations(Declaration);
+    return true;
+  }
+
+  void modify_env_at_declarations(VarDecl *Declaration){
+
     string name = VarDeclToString(Declaration);
 
     // Modify Alpha, Beta, Gamma
@@ -198,9 +204,28 @@ public:
       Gamma.insert(std::pair<string, set<string>>(name, set<string>()));
     };
     Beta.insert(std::pair<string, set<string>>(name, set<string>()));
+  }
 
-    return true;
+  void modify_env_at_declarations(BinaryOperator *BinOperator){
 
+    DeclRefExpr *Declaration = dyn_cast<DeclRefExpr>(BinOperator->getLHS());
+    string name = DeclRefExprToString(Declaration);
+
+    // Invalidate the clients
+    reassign(name);
+
+    // Let the dependants know that name is no longer a client
+    DeregisterClients(name, Gamma[name]);
+
+    // Collect variables
+    Expr* Initializer = BinOperator->getRHS();
+    CollectDeclRefExprVisitor CDREVisitor;
+    CDREVisitor.TraverseStmt(dyn_cast<Stmt>(Initializer));
+
+    // Modify Alpha, Beta, Gamma
+    Alpha[name] = Valid;
+    Gamma[name] = CDREVisitor.getVariable();
+    UpdateClients(name, CDREVisitor.getVariable()); 
   }
 
   void reassign(string name){
@@ -225,7 +250,7 @@ public:
       if (Alpha[name] == Undecided){
         GlobalPreconditions.insert(name);
       }
-      reassign(name);
+      modify_env_at_declarations(BinOperator);
     }
     return true;
   }
@@ -453,6 +478,18 @@ private:
       if (Beta.find(DependencyString) == Beta.end())
         Beta.insert(std::pair<string, set<string>>(DependencyString, set<string>()));
       Beta[DependencyString].insert(Var);
+      Dependency++;
+    }
+  }
+
+  void DeregisterClients(string Var, set<string> Dependencies) {
+    set<string>::iterator Dependency = Dependencies.begin();
+    while (Dependency != Dependencies.end())
+    {
+      string DependencyString{*Dependency};
+      if (Beta.find(DependencyString) == Beta.end())
+        Beta.insert(std::pair<string, set<string>>(DependencyString, set<string>()));
+      Beta[DependencyString].erase(Var);
       Dependency++;
     }
   }
