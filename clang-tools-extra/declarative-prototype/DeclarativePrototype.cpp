@@ -1,4 +1,4 @@
-/*
+/* 
 Declarative Prototype: This is a declarative verifier. 
 
 Including the following coding features will produced undefined results.
@@ -18,6 +18,8 @@ Including the following coding features will produced undefined results.
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "llvm/Support/CommandLine.h"
 #include "clang/Analysis/CallGraph.h"
+
+#include "Andersen.cpp"
 
 using namespace clang::tooling;
 using namespace llvm;
