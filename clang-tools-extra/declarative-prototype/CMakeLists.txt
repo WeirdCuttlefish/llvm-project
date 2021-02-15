@@ -1,6 +1,6 @@
-add_clang_executable(declarative-prototype DeclarativePrototype.cpp)
+add_clang_executable(declarative-prototype DeclarativePrototype.cpp Andersen.h)
 
-target_link_libraries(declarative-prototype 
+target_link_libraries(declarative-prototype
   clangTooling
   clangBasic
 )

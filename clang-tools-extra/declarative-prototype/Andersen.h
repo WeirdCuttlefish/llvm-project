@@ -1,6 +1,16 @@
 #include<set>
+#include<map>
 #include<string>
-#include<iostream>
+
+
+#include "llvm/Support/CommandLine.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/ASTMatchers/ASTMatchers.h"
+#include "clang/ASTMatchers/ASTMatchFinder.h"
+
+using namespace std;
+using namespace clang;
+using namespace ast_matchers;
 
 #define DEBUG
 
@@ -26,9 +36,9 @@ class Node{
         std::set<Node*>* getPointsTo(){
             #ifdef DEBUG
             if (m_type != Pointer){
-                std::cout << "The variable " << m_name << "is not a pointer.";
+                llvm::outs() << "The variable " << m_name << "is not a pointer.";
             } else {
-                std::cout << "The variable " << m_name << "is a pointer.";
+                llvm::outs() << "The variable " << m_name << "is a pointer.";
             }
             #endif
             return &m_pointsTo;
@@ -45,21 +55,23 @@ class Node{
         
 };
 
-class AndersenUtils{
+class APAGraph{
     public:
 
+        explicit APAGraph(){}
+
         // These methods are inspired by http://pages.cs.wisc.edu/~fischer/cs701.f08/lectures/Lecture26.4up.pdf
-        static void pointerTakesAddress(Node &lhsVar, Node &rhsVar){
+        void pointerTakesAddress(Node &lhsVar, Node &rhsVar){
             lhsVar.getPointsTo()->insert(&rhsVar);
         }
 
-        static void pointerTakesCopy(Node &lhsVar, Node &rhsVar){
+        void pointerTakesCopy(Node &lhsVar, Node &rhsVar){
             for (auto n : *(rhsVar.getPointsTo())){
                 lhsVar.getPointsTo()->insert(n);
             }
         }
 
-        static void pointerTakesDereference(Node &lhsVar, Node &rhsVar){
+        void pointerTakesDereference(Node &lhsVar, Node &rhsVar){
             for (auto n1 : *(rhsVar.getPointsTo())){
                 for (auto n2 : *(n1->getPointsTo())){
                     lhsVar.getPointsTo()->insert(n2);
@@ -67,13 +79,13 @@ class AndersenUtils{
             }
         }
 
-        static void dereferencedPointerTakesAddress(Node &lhsVar, Node &rhsVar){
+        void dereferencedPointerTakesAddress(Node &lhsVar, Node &rhsVar){
             for (auto n : *(lhsVar.getPointsTo())){
                 n->getPointsTo()->insert(&rhsVar);
             }
         }
 
-        static void dereferencedPointerTakesCopy(Node &lhsVar, Node &rhsVar){
+        void dereferencedPointerTakesCopy(Node &lhsVar, Node &rhsVar){
             for (auto n1: *(lhsVar.getPointsTo())){
                 for (auto n2: *(rhsVar.getPointsTo())){
                     n1->getPointsTo()->insert(n2);
@@ -81,7 +93,7 @@ class AndersenUtils{
             }
         }
 
-        static void dereferencedPointerTakesDereference(Node &lhsVar, Node &rhsVar){
+        void dereferencedPointerTakesDereference(Node &lhsVar, Node &rhsVar){
             for (auto n1: *(lhsVar.getPointsTo())){
                 for (auto n2: *(rhsVar.getPointsTo())){
                     for (auto n3: *(n2->getPointsTo())){
@@ -91,4 +103,29 @@ class AndersenUtils{
             }
         }
 
+        // Matchers
+        DeclarationMatcher getPointerAndAddress(){
+            return decl(forEachDescendant(decl(varDecl().bind("decl"))));
+        }
+
+    private:
+
+        map<string, Node*> Graph;
+
+};
+
+class APAWorker : public MatchFinder::MatchCallback {
+public :
+  explicit APAWorker(map<string, Node*>* Graph){
+      G = Graph;
+  }
+
+  virtual void run(const MatchFinder::MatchResult &Result) {
+    if (const Decl *D = Result.Nodes.getNodeAs<clang::Decl>("decl"))
+      D->dump();
+      G->insert(std::pair<string, Node*>("Hello", NULL));
+  }
+
+private :
+  map<string, Node*>* G;
 };

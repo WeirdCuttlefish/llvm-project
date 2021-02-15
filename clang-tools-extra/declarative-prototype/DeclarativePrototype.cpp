@@ -19,7 +19,6 @@ Including the following coding features will produced undefined results.
 #include "llvm/Support/CommandLine.h"
 #include "clang/Analysis/CallGraph.h"
 
-#include "Andersen.cpp"
 
 using namespace clang::tooling;
 using namespace llvm;
@@ -29,6 +28,8 @@ using namespace std;
 #include <set>
 #include <map>
 #include <string>
+
+#include "Andersen.h"
 
 
 enum Validity {Valid, Invalid, Undecided};
@@ -648,6 +649,19 @@ private:
       );
 
       Visitor.TraverseDecl(root->getDecl());
+
+      // APA
+      map<string, Node*> Graph;
+      APAWorker Worker(&Graph);
+      MatchFinder Finder;
+      APAGraph APA;
+      Finder.addMatcher(APA.getPointerAndAddress(), &Worker);
+      Finder.match(*(root->getDecl()), Context);
+
+      for (auto p : Graph){
+        llvm::outs() << p.first;
+      }
+
       FunctionChanges.insert(std::pair<string, Function>(FunctionName, Visitor.getFunctionDetails()));
 
       Visited.insert(FunctionName);
