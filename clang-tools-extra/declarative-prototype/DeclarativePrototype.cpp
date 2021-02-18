@@ -30,6 +30,7 @@ using namespace std;
 #include <string>
 
 #include "Andersen.h"
+#include "CallGraph.h"
 
 
 enum Validity {Valid, Invalid, Undecided};
@@ -592,54 +593,27 @@ public:
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
 
+    // Create list of graphs to work on
+    CallGraphUtil CGU(&Context);
+    list<CallGraphNode> LCGU = CGU.generateCallList();
+
     // Function map
     map<string, Function> FunctionChanges;
 
     // Work on global variables
     DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor;
     GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
+    map<string, Validity> GlobalAlpha = GlobalVisitor.getAlpha();
 
     // Work on functions in reverse call order
-    set<string> Visited;
-    CallGraph CG;
-    CG.addToCallGraph(Context.getTranslationUnitDecl());
-    CallGraphNode *origin = CG.getRoot();
-    CallGraphNode *root = CG.getRoot();
-    PostTraverseCallGraph(root, origin, Visited, GlobalVisitor, Context, FunctionChanges);
-  }
-
-private:
-  // Post Traversal of CallGraph
-  void PostTraverseCallGraph(CallGraphNode *root, CallGraphNode *origin, set<string> &Visited, 
-          DeclarativeCheckingFunctionVisitorGlobal &GlobalVisitor, ASTContext &Context, map<string, Function> &FunctionChanges){
-
-    if (root == NULL){
-      return;
-    }
-    else if (root == origin){
-      for (CallGraphNode *c : root->callees()){
-        PostTraverseCallGraph(c, origin, Visited, GlobalVisitor, Context, FunctionChanges);
-      }
-    } else {
-      if (root->getDecl() != NULL &&
-          Visited.find(dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString()) != Visited.end()){
-        return;
-      }
-
-      for (CallGraphNode *c : root->callees()){
-        PostTraverseCallGraph(c, origin, Visited, GlobalVisitor, Context, FunctionChanges);
-      }
-
-      map<string, Validity> GlobalAlpha = GlobalVisitor.getAlpha();
-
-      // If the function is main assume the global variables to be valid
-      string FunctionName = dyn_cast<FunctionDecl>(root->getDecl())->getNameAsString();
+    for (CallGraphNode n : LCGU){
+      string FunctionName = dyn_cast<FunctionDecl>(n.getDecl())->getNameAsString();
+      // llvm::outs() << "Running on " + FunctionName + ":\n";
       if (FunctionName == "main"){
         for (std::pair<string,Validity> p : GlobalAlpha){
           GlobalAlpha[p.first] = Valid;
         }
       }
-
       DeclarativeCheckingFunctionVisitor Visitor(
           &Context,
           GlobalAlpha,
@@ -647,26 +621,11 @@ private:
           GlobalVisitor.getGamma(),
           &FunctionChanges
       );
-
-      Visitor.TraverseDecl(root->getDecl());
-
-      // APA
-      map<string, Node*> Graph;
-      APAWorker Worker(&Graph);
-      MatchFinder Finder;
-      APAGraph APA;
-      Finder.addMatcher(APA.getPointerAndAddress(), &Worker);
-      Finder.match(*(root->getDecl()), Context);
-
-      for (auto p : Graph){
-        llvm::outs() << p.first;
-      }
-
+      Visitor.TraverseDecl(n.getDecl());
       FunctionChanges.insert(std::pair<string, Function>(FunctionName, Visitor.getFunctionDetails()));
-
-      Visited.insert(FunctionName);
     }
   }
+
 };
 
 class DeclarativeCheckingAction : public clang::ASTFrontendAction {
