@@ -23,9 +23,9 @@ public:
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
 
-    // Create list of graphs to work on
-    CallGraphUtil CGU(&Context);
-    list<CallGraphNode> LCGU = CGU.generateCallList();
+    // Test
+    APAMatchFinderUtil APAUtil(&Context);
+    APAUtil.run();
 
     // Function map
     map<string, Function> FunctionChanges;
@@ -34,6 +34,10 @@ public:
     DeclarativeCheckingVisitor::DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor;
     GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
     map<string, Validity> GlobalAlpha = GlobalVisitor.getAlpha();
+
+    // Create list of graphs to work on
+    CallGraphUtil CGU(&Context);
+    list<CallGraphNode> LCGU = CGU.generateCallList();
 
     // Work on functions in reverse call order
     for (CallGraphNode n : LCGU){
