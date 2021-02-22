@@ -49,6 +49,14 @@ class Node{
             return m_type;
         }
 
+        std::string toString(){
+            std::string out = "Node " + m_name + ": ";
+            for (Node* n : m_pointsTo){
+                out += (n->getName() + ", ");
+            }
+            return out;
+        }
+
     private:
         std::string m_name;
         std::set<Node*> m_pointsTo;

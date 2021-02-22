@@ -26,6 +26,12 @@ public:
     // Test
     APAMatchFinderUtil APAUtil(&Context);
     APAUtil.run();
+    APAUtil.run();
+    map<string, Node*>* APA = APAUtil.getGraph();
+
+    for (auto p : *APA){
+      llvm::outs() << p.second->toString() << "\n";
+    }
 
     // Function map
     map<string, Function> FunctionChanges;
