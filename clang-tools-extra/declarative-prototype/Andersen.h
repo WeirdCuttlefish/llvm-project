@@ -388,19 +388,21 @@ private :
 
 class APAMatchFinderUtil {
 public :
-  explicit APAMatchFinderUtil(ASTContext *Context) : Context(Context){}
+  explicit APAMatchFinderUtil(ASTContext *Context) : 
+    Context(Context),
+    Graph(new map<string, Node*>())
+    {}
 
   void run(){
-    map<string, Node*> Graph;
     MatchFinder Finder;
     APAGraph APAUtils;
 
-    APAPointerTakesCopyWorker Worker1(&Graph);
-    APAPointerTakesAddressWorker Worker2(&Graph);
-    APAPointerTakesDereferenceWorker Worker3(&Graph);
-    APADereferencedPointerTakesCopyWorker Worker4(&Graph);
-    APADereferencedPointerTakesAddressWorker Worker5(&Graph);
-    APADereferencedPointerTakesDereferenceWorker Worker6(&Graph);
+    APAPointerTakesCopyWorker Worker1(Graph);
+    APAPointerTakesAddressWorker Worker2(Graph);
+    APAPointerTakesDereferenceWorker Worker3(Graph);
+    APADereferencedPointerTakesCopyWorker Worker4(Graph);
+    APADereferencedPointerTakesAddressWorker Worker5(Graph);
+    APADereferencedPointerTakesDereferenceWorker Worker6(Graph);
 
     Finder.addMatcher(APAUtils.getPointerTakesCopy(), &Worker1);
     Finder.addMatcher(APAUtils.getPointerTakesAddress(), &Worker2);
@@ -412,7 +414,12 @@ public :
     Finder.match(*(Context->getTranslationUnitDecl()), *Context);
   }
 
+  map<string, Node*>* getGraph(){
+      return Graph;
+  }
+
 private :
   ASTContext *Context;
+  map<string, Node*>* Graph;
 
 };
