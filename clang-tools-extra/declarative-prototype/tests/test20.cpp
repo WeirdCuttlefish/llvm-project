@@ -1,7 +1,7 @@
 /*
 Basic pointer.
 Output:
-WARNING! y is not updated! This error is at: 22:5
+
 */
 
 int main() {

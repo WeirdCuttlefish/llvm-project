@@ -11,8 +11,6 @@ using namespace std;
 using namespace clang;
 using namespace ast_matchers;
 
-#define DEBUG
-
 enum VariableType {Pointer, Variable};
 
 class Node{

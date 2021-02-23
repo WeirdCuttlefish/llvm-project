@@ -48,7 +48,9 @@ public:
     // Work on functions in reverse call order
     for (CallGraphNode n : LCGU){
       string FunctionName = dyn_cast<FunctionDecl>(n.getDecl())->getNameAsString();
-      // llvm::outs() << "Running on " + FunctionName + ":\n";
+      #ifdef DEBUG
+      llvm::outs() << "Running on " + FunctionName + ":\n";
+      #endif
       if (FunctionName == "main"){
         for (std::pair<string,Validity> p : GlobalAlpha){
           GlobalAlpha[p.first] = Valid;
