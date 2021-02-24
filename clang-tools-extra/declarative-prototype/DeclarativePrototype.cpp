@@ -6,6 +6,8 @@
 #include "CallGraph.h"
 #include "DeclarativeCheckingVisitor.h"
 
+#include "Utils.h"
+
 using namespace clang::tooling;
 using namespace llvm;
 using namespace clang;
