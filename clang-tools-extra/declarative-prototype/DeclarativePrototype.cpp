@@ -6,8 +6,6 @@
 #include "CallGraph.h"
 #include "DeclarativeCheckingVisitor.h"
 
-#include "Utils.h"
-
 using namespace clang::tooling;
 using namespace llvm;
 using namespace clang;
@@ -24,6 +22,8 @@ public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
+
+    Context.getTranslationUnitDecl()->dump();
 
     // Test
     APAMatchFinderUtil APAUtil(&Context);
@@ -63,7 +63,8 @@ public:
           GlobalAlpha,
           GlobalVisitor.getBeta(),
           GlobalVisitor.getGamma(),
-          &FunctionChanges
+          &FunctionChanges,
+          APA
       );
       Visitor.TraverseDecl(n.getDecl());
       FunctionChanges.insert(std::pair<string, Function>(FunctionName, Visitor.getFunctionDetails()));

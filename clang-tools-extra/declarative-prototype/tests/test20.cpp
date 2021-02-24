@@ -14,5 +14,6 @@ int main() {
     *e = a;
     *d = &z;
     *c = *b;
+    *c;
     return 0;
 }

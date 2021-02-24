@@ -45,10 +45,12 @@ class DeclarativeCheckingVisitor{
       map<string, Validity> Alpha,
       map<string, set<string>> Beta,
       map<string, set<string>> Gamma,
-      map<string, Function> *FunctionChanges
+      map<string, Function> *FunctionChanges,
+      map<string, Node*>* PointerAnalysis
     )
       : Context(Context),
         FunctionChanges(FunctionChanges),
+        PointerAnalysis(PointerAnalysis),
         GlobalAlpha(map<string, Validity>(Alpha)),
         Alpha(map<string, Validity>(Alpha)),
         Beta(map<string, set<string>>(Beta)),
@@ -231,11 +233,11 @@ class DeclarativeCheckingVisitor{
 
       if (elseStmt){
         // Recurse on body
-        DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma, FunctionChanges);
+        DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma, FunctionChanges, PointerAnalysis);
         Visitor1.TraverseStmt(thenStmt);
 
         // Recurse on else
-        DeclarativeCheckingFunctionVisitor Visitor2(Context, Alpha, Beta, Gamma, FunctionChanges);
+        DeclarativeCheckingFunctionVisitor Visitor2(Context, Alpha, Beta, Gamma, FunctionChanges, PointerAnalysis);
         Visitor2.TraverseStmt(elseStmt);
 
         // Get Alphas
@@ -253,7 +255,7 @@ class DeclarativeCheckingVisitor{
         }
       } else {
         // Recurse on body
-        DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma, FunctionChanges);
+        DeclarativeCheckingFunctionVisitor Visitor1(Context, Alpha, Beta, Gamma, FunctionChanges, PointerAnalysis);
         Visitor1.TraverseStmt(thenStmt);
 
         // Get Alpha
@@ -276,7 +278,7 @@ class DeclarativeCheckingVisitor{
     bool TraverseForStmt(ForStmt *forStmt) {
       // Get init variable
       Stmt* initStmt = forStmt->getInit();
-      DeclarativeCheckingFunctionVisitor InitFinder(Context, Alpha, Beta, Gamma, FunctionChanges);
+      DeclarativeCheckingFunctionVisitor InitFinder(Context, Alpha, Beta, Gamma, FunctionChanges, PointerAnalysis);
       InitFinder.TraverseStmt(initStmt);
       map<string, Validity> Alpha1 = InitFinder.getAlpha();
       map<string, set<string>> Beta1 = InitFinder.getBeta();
@@ -284,7 +286,7 @@ class DeclarativeCheckingVisitor{
 
       // Get Body
       Stmt* bodyStmt = forStmt->getBody();
-      DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha1, Beta1, Gamma1, FunctionChanges);
+      DeclarativeCheckingFunctionVisitor Visitor(Context, Alpha1, Beta1, Gamma1, FunctionChanges, PointerAnalysis);
       Visitor.TraverseStmt(bodyStmt);
       map<string, Validity> Alpha2 = Visitor.getAlpha();
 
@@ -331,6 +333,7 @@ class DeclarativeCheckingVisitor{
   private:
     ASTContext *Context;
     map<string, Function> *FunctionChanges;
+    map<string, Node*>* PointerAnalysis;
 
     // Contexts
     map<string, Validity> Alpha;     // Variable to valid bit
