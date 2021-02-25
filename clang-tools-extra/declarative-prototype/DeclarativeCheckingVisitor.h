@@ -137,21 +137,23 @@ class DeclarativeCheckingVisitor{
       if(Declaration == 0)
         return true;
 
-      if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
-        string name = VarDeclToString(VD);
+      if (not Declaration->getType()->isPointerType()){
+        if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(Declaration->getDecl())){
+          string name = VarDeclToString(VD);
 
-        if (Alpha[name] == Undecided){
-          GlobalPreconditions.insert(name);
-          Alpha[name] = Valid;
-        }
+          if (Alpha[name] == Undecided){
+            GlobalPreconditions.insert(name);
+            Alpha[name] = Valid;
+          }
 
-        FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
-        if (Alpha[name] == Invalid){
-          llvm::outs() << "WARNING! " << name << " is not updated! ";
-          if (FullLocation.isValid())
-            llvm::outs() << "This error is at: "
-                          << FullLocation.getSpellingLineNumber() << ":"
-                          << FullLocation.getSpellingColumnNumber() << "\n";
+          FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getBeginLoc());
+          if (Alpha[name] == Invalid){
+            llvm::outs() << "WARNING! " << name << " is not updated! ";
+            if (FullLocation.isValid())
+              llvm::outs() << "This error is at: "
+                            << FullLocation.getSpellingLineNumber() << ":"
+                            << FullLocation.getSpellingColumnNumber() << "\n";
+          }
         }
       }
       return true;
@@ -178,8 +180,20 @@ class DeclarativeCheckingVisitor{
           Alpha[varname] = Valid;
         }
         reassign(varname);
+      } else if (UnaryOperator::getOpcodeStr(unaryOperator->getOpcode()) == "*") {
+        // TODO: Make this work for **b
+        DeclRefExpr* declRefExpr = dyn_cast<DeclRefExpr>(
+          dyn_cast<ImplicitCastExpr>(
+            unaryOperator->getSubExpr()
+          )->getSubExpr()
+        );
+        string varname = declRefExpr->getNameInfo().getAsString();
+        for (Node* n : *(*PointerAnalysis)[varname]->getPointsTo()){
+          if (Alpha.find(n->getName()) != Alpha.end() && Alpha[n->getName()] != Valid){
+            llvm::outs() << "WARNING: " << n->getName() << " from pointer " << varname << " not updated!\n";
+          }
+        }
       } else {
-        // TODO: Fix this to unaryOperator body 
         RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor>::TraverseUnaryOperator(unaryOperator);
       }
       return true;

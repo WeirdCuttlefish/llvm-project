@@ -4,7 +4,6 @@ Output:
 UNSURE
 */
 
-
 // How it should be done.
 int swap1(){
 

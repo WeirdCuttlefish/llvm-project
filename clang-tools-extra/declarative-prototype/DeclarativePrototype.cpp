@@ -23,7 +23,9 @@ public:
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
 
+    #ifdef DEBUG
     Context.getTranslationUnitDecl()->dump();
+    #endif
 
     // Test
     APAMatchFinderUtil APAUtil(&Context);
@@ -31,9 +33,11 @@ public:
     APAUtil.run();
     map<string, Node*>* APA = APAUtil.getGraph();
 
+    #ifdef DEBUG
     for (auto p : *APA){
       llvm::outs() << p.second->toString() << "\n";
     }
+    #endif
 
     // Function map
     map<string, Function> FunctionChanges;

@@ -11,8 +11,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "clang/Analysis/CallGraph.h"
 
-#include "Utils.h"
-
 using namespace clang::tooling;
 using namespace llvm;
 using namespace clang;

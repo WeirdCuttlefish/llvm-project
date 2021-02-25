@@ -1,7 +1,7 @@
 /*
 Function call in variable declaration.
 Output: 
-WARNING! b is not updated! This error is at: 15:5
+WARNING! b is not updated! This error is at: 16:5
 NOT WORKING
 */
 
