@@ -27,18 +27,6 @@ public:
     Context.getTranslationUnitDecl()->dump();
     #endif
 
-    // Test
-    APAMatchFinderUtil APAUtil(&Context);
-    APAUtil.run();
-    APAUtil.run();
-    map<string, Node*>* APA = APAUtil.getGraph();
-
-    #ifdef DEBUG
-    for (auto p : *APA){
-      llvm::outs() << p.second->toString() << "\n";
-    }
-    #endif
-
     // Function map
     map<string, Function> FunctionChanges;
 
@@ -62,6 +50,20 @@ public:
           GlobalAlpha[p.first] = Valid;
         }
       }
+
+      // APA Creator
+      APAMatchFinderUtil APAUtil(&Context, n.getDecl());
+      APAUtil.run();
+      APAUtil.run();
+      map<string, Node*>* APA = APAUtil.getGraph();
+
+      #ifdef DEBUG
+      for (auto p : *APA){
+        llvm::outs() << p.second->toString() << "\n";
+      }
+      #endif
+
+      // Function Visitor
       DeclarativeCheckingVisitor::DeclarativeCheckingFunctionVisitor Visitor(
           &Context,
           GlobalAlpha,

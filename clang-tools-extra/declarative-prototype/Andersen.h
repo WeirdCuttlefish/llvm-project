@@ -346,8 +346,9 @@ private :
 
 class APAMatchFinderUtil {
 public :
-  explicit APAMatchFinderUtil(ASTContext *Context) : 
+  explicit APAMatchFinderUtil(ASTContext *Context, Decl *WorkNode) : 
     Context(Context),
+    WorkNode(WorkNode),
     Graph(new map<string, Node*>())
     {}
 
@@ -369,7 +370,7 @@ public :
     Finder.addMatcher(APAUtils.getDereferencedPointerTakesAddress(), &Worker5);
     Finder.addMatcher(APAUtils.getDereferencedPointerTakesDereference(), &Worker6);
 
-    Finder.match(*(Context->getTranslationUnitDecl()), *Context);
+    Finder.match(*WorkNode, *Context);
   }
 
   map<string, Node*>* getGraph(){
@@ -378,6 +379,7 @@ public :
 
 private :
   ASTContext *Context;
+  Decl *WorkNode;
   map<string, Node*>* Graph;
 
 };

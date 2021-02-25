@@ -12,7 +12,6 @@
 #include "clang/Analysis/CallGraph.h"
 
 using namespace clang::tooling;
-using namespace llvm;
 using namespace clang;
 using namespace std;
 
@@ -33,7 +32,7 @@ string DeclRefExprToString(DeclRefExpr *x){
   return x->getNameInfo().getAsString();
 }
 
-void PrintGamma(map<string, set<string>> m) {
+void PrintGamma(map<std::string, set<string>> m) {
   llvm::outs() << "Gamma Begin:\n";
   map<string, set<string>>::iterator it;
   for (it = m.begin(); it != m.end(); it++)
