@@ -15,7 +15,6 @@
 #include "Utils.h"
 
 using namespace clang::tooling;
-using namespace llvm;
 using namespace clang;
 using namespace std;
 
@@ -38,26 +37,26 @@ class DeclarativeCheckingVisitor{
   A Declarative Checker that is works on function subtrees
   */
   class DeclarativeCheckingFunctionVisitor
-    : public RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor> {
+    : public clang::RecursiveASTVisitor<DeclarativeCheckingFunctionVisitor> {
   public:
     explicit DeclarativeCheckingFunctionVisitor(
-      ASTContext *Context,
-      map<string, Validity> Alpha,
-      map<string, set<string>> Beta,
-      map<string, set<string>> Gamma,
-      map<string, Function> *FunctionChanges,
-      map<string, Node*>* PointerAnalysis
+      clang::ASTContext *Context,
+      std::map<string, Validity> Alpha,
+      std::map<string, std::set<string>> Beta,
+      std::map<string, std::set<string>> Gamma,
+      std::map<string, Function> *FunctionChanges,
+      std::map<string, Node*>* PointerAnalysis
     )
       : Context(Context),
         FunctionChanges(FunctionChanges),
         PointerAnalysis(PointerAnalysis),
-        GlobalAlpha(map<string, Validity>(Alpha)),
-        Alpha(map<string, Validity>(Alpha)),
-        Beta(map<string, set<string>>(Beta)),
-        Gamma(map<string, set<string>>(Gamma))
+        GlobalAlpha(std::map<string, Validity>(Alpha)),
+        Alpha(std::map<string, Validity>(Alpha)),
+        Beta(std::map<string, set<string>>(Beta)),
+        Gamma(std::map<string, set<string>>(Gamma))
         {}
 
-    // Find declaration statements
+    // Find declaration  statements
     bool VisitVarDecl(VarDecl *Declaration) {
       modify_env_at_declarations(Declaration);
       return true;

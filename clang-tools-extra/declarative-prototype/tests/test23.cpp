@@ -1,7 +1,15 @@
-#include <iostream>
+/*
+Global Pointer
+Output:
 
-using namespace std;
+*/
 
-void main(){
-    cout << "HELLO World";
+int a = 3;
+int b = a;
+int *c = &b;
+
+int main() {
+    a = 3;
+    *c;
+    return 0;
 }
