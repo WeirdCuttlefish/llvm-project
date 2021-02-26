@@ -27,18 +27,6 @@ public:
     Context.getTranslationUnitDecl()->dump();
     #endif
 
-    // APA Creator
-    APAMatchFinderUtil APAUtil(&Context, Context.getTranslationUnitDecl());
-    APAUtil.run();
-    APAUtil.run();
-    map<string, Node*>* APA = APAUtil.getGraph();
-
-    #ifdef DEBUG
-    for (auto p : *APA){
-      llvm::outs() << p.second->toString() << "\n";
-    }
-    #endif
-
     // Function map
     map<string, Function> FunctionChanges;
 
@@ -53,10 +41,24 @@ public:
 
     // Work on functions in reverse call order
     for (CallGraphNode n : LCGU){
+
+      #ifdef DEBUG
+      for (auto p : *APA){
+        llvm::outs() << p.second->toString() << "\n";
+      }
+      #endif
+
       string FunctionName = dyn_cast<FunctionDecl>(n.getDecl())->getNameAsString();
       #ifdef DEBUG
       llvm::outs() << "Running on " + FunctionName + ":\n";
       #endif
+
+      // APA Creator
+      APAMatchFinderUtil APAUtil(&Context, Context.getTranslationUnitDecl(), FunctionName);
+      APAUtil.run();
+      APAUtil.run();
+      map<string, Node*>* APA = APAUtil.getGraph();
+
       if (FunctionName == "main"){
         for (std::pair<string,Validity> p : GlobalAlpha){
           GlobalAlpha[p.first] = Valid;

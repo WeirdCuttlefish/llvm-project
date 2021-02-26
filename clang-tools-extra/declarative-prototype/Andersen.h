@@ -7,6 +7,7 @@
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 
+#include "CustomMatchers.h"
 #include "Utils.h"
 
 using namespace std;
@@ -60,64 +61,6 @@ class APAGraph{
                     }
                 }
             }
-        }
-
-        // Matchers
-        DeclarationMatcher getPointerTakesCopy(){
-            return decl(forEachDescendant(decl(
-                varDecl(
-                    hasType(isAnyPointer()), 
-                    hasInitializer(implicitCastExpr(hasSourceExpression(declRefExpr())))
-                ).bind("decl1")
-            )));
-        }
-
-        DeclarationMatcher getPointerTakesAddress(){
-            return decl(forEachDescendant(decl(
-                varDecl(
-                    hasType(isAnyPointer()), 
-                    hasInitializer(unaryOperator(hasOperatorName("&")))
-                ).bind("decl2")
-            )));
-        }
-
-        DeclarationMatcher getPointerTakesDereference(){
-            return decl(forEachDescendant(decl(
-                varDecl(
-                    hasType(isAnyPointer()), 
-                    hasInitializer(implicitCastExpr(hasSourceExpression(unaryOperator(hasOperatorName("*")))))
-                ).bind("decl3")
-            )));
-        }
-
-        DeclarationMatcher getDereferencedPointerTakesCopy(){
-            return decl(forEachDescendant(
-                binaryOperator(
-                    isAssignmentOperator(),
-                    hasLHS((unaryOperator(hasOperatorName("*")))), 
-                    hasRHS(implicitCastExpr(hasSourceExpression(declRefExpr())))
-                ).bind("decl4")
-            ));
-        }
-
-        DeclarationMatcher getDereferencedPointerTakesAddress(){
-            return decl(forEachDescendant(
-                binaryOperator(
-                    isAssignmentOperator(),
-                    hasLHS((unaryOperator(hasOperatorName("*")))), 
-                    hasRHS(unaryOperator(hasOperatorName("&")))
-                ).bind("decl5")
-            ));
-        }
-
-        DeclarationMatcher getDereferencedPointerTakesDereference(){
-            return decl(forEachDescendant(
-                binaryOperator(
-                    isAssignmentOperator(),
-                    hasLHS((unaryOperator(hasOperatorName("*")))), 
-                    hasRHS(implicitCastExpr(hasSourceExpression(unaryOperator(hasOperatorName("*")))))
-                ).bind("decl6")
-            ));
         }
 
     private:
@@ -346,10 +289,11 @@ private :
 
 class APAMatchFinderUtil {
 public :
-  explicit APAMatchFinderUtil(ASTContext *Context, Decl *WorkNode) : 
+  explicit APAMatchFinderUtil(ASTContext *Context, Decl *WorkNode, string funName) : 
     Context(Context),
     WorkNode(WorkNode),
-    Graph(new map<string, Node*>())
+    Graph(new map<string, Node*>()),
+    funName(funName)
     {}
 
   void run(){
@@ -363,12 +307,20 @@ public :
     APADereferencedPointerTakesAddressWorker Worker5(Graph);
     APADereferencedPointerTakesDereferenceWorker Worker6(Graph);
 
-    Finder.addMatcher(APAUtils.getPointerTakesCopy(), &Worker1);
-    Finder.addMatcher(APAUtils.getPointerTakesAddress(), &Worker2);
-    Finder.addMatcher(APAUtils.getPointerTakesDereference(), &Worker3);
-    Finder.addMatcher(APAUtils.getDereferencedPointerTakesCopy(), &Worker4);
-    Finder.addMatcher(APAUtils.getDereferencedPointerTakesAddress(), &Worker5);
-    Finder.addMatcher(APAUtils.getDereferencedPointerTakesDereference(), &Worker6);
+    Finder.addMatcher(CustomMatchers::FunctionMatchers::getPointerTakesCopy(funName), &Worker1);
+    Finder.addMatcher(CustomMatchers::FunctionMatchers::getPointerTakesAddress(funName), &Worker2);
+    Finder.addMatcher(CustomMatchers::FunctionMatchers::getPointerTakesDereference(funName), &Worker3);
+    Finder.addMatcher(CustomMatchers::FunctionMatchers::getDereferencedPointerTakesCopy(funName), &Worker4);
+    Finder.addMatcher(CustomMatchers::FunctionMatchers::getDereferencedPointerTakesAddress(funName), &Worker5);
+    Finder.addMatcher(CustomMatchers::FunctionMatchers::getDereferencedPointerTakesDereference(funName), &Worker6);
+
+    Finder.addMatcher(CustomMatchers::GlobalMatchers::getPointerTakesCopy(), &Worker1);
+    Finder.addMatcher(CustomMatchers::GlobalMatchers::getPointerTakesAddress(), &Worker2);
+    Finder.addMatcher(CustomMatchers::GlobalMatchers::getPointerTakesDereference(), &Worker3);
+    Finder.addMatcher(CustomMatchers::GlobalMatchers::getDereferencedPointerTakesCopy(), &Worker4);
+    Finder.addMatcher(CustomMatchers::GlobalMatchers::getDereferencedPointerTakesAddress(), &Worker5);
+    Finder.addMatcher(CustomMatchers::GlobalMatchers::getDereferencedPointerTakesDereference(), &Worker6);
+
 
     Finder.match(*WorkNode, *Context);
   }
@@ -381,6 +333,7 @@ private :
   ASTContext *Context;
   Decl *WorkNode;
   map<string, Node*>* Graph;
+  string funName;
 
 };
 
