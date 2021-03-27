@@ -1,16 +1,14 @@
+#include "clang/AST/ASTConsumer.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendAction.h"
+#include "clang/Tooling/CommonOptionsParser.h"
+#include "clang/Tooling/Tooling.h"
+#include "DependencyGraph.h"
 #include <map>
 #include <set>
 #include <string>
 
-#include "Andersen.h"
-#include "CallGraph.h"
-#include "DeclarativeCheckingVisitor.h"
-#include "DependencyGraph.h"
-
-using namespace clang::tooling;
-using namespace llvm;
-using namespace clang;
-using namespace std;
 
 using namespace declarative;
 
@@ -22,70 +20,17 @@ DeclarativeCheckingConsumer:
 */
 class DeclarativeCheckingConsumer : public clang::ASTConsumer {
 public:
-  explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
+  explicit DeclarativeCheckingConsumer(clang::ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
 
-    DependencyGraph *d = new DependencyGraph();
-    d->insert("Hello", set<string>());
-    set<string> depends;
-    depends.insert("Hello");
-    d->insert("MyMom", depends);
+    DependencyGraph *D = new DependencyGraph();
+    D->insert("Hello", set<string>());
+    set<string> Depends;
+    Depends.insert("Hello");
+    D->insert("MyMom", Depends);
 
-    #ifdef DEBUG
     Context.getTranslationUnitDecl()->dump();
-    #endif
-
-    // Function map
-    map<string, Function> FunctionChanges;
-
-    // Work on global variables
-    DeclarativeCheckingVisitor::DeclarativeCheckingFunctionVisitorGlobal GlobalVisitor;
-    GlobalVisitor.TraverseDecl(Context.getTranslationUnitDecl());
-    map<string, Validity> GlobalAlpha = GlobalVisitor.getAlpha();
-
-    // Create list of graphs to work on
-    CallGraphUtil CGU(&Context);
-    list<CallGraphNode> LCGU = CGU.generateCallList();
-
-    // Work on functions in reverse call order
-    for (CallGraphNode n : LCGU){
-
-      #ifdef DEBUG
-      for (auto p : *APA){
-        llvm::outs() << p.second->toString() << "\n";
-      }
-      #endif
-
-      string FunctionName = dyn_cast<FunctionDecl>(n.getDecl())->getNameAsString();
-      #ifdef DEBUG
-      llvm::outs() << "Running on " + FunctionName + ":\n";
-      #endif
-
-      // APA Creator
-      APAMatchFinderUtil APAUtil(&Context, Context.getTranslationUnitDecl(), FunctionName);
-      APAUtil.run();
-      APAUtil.run();
-      map<string, Node*>* APA = APAUtil.getGraph();
-
-      if (FunctionName == "main"){
-        for (std::pair<string,Validity> p : GlobalAlpha){
-          GlobalAlpha[p.first] = Valid;
-        }
-      }
-
-      // Function Visitor
-      DeclarativeCheckingVisitor::DeclarativeCheckingFunctionVisitor Visitor(
-          &Context,
-          GlobalAlpha,
-          GlobalVisitor.getBeta(),
-          GlobalVisitor.getGamma(),
-          &FunctionChanges,
-          APA
-      );
-      Visitor.TraverseDecl(n.getDecl());
-      FunctionChanges.insert(std::pair<string, Function>(FunctionName, Visitor.getFunctionDetails()));
-    }
   }
 
 };
@@ -101,8 +46,8 @@ public:
 
 static llvm::cl::OptionCategory MyToolCategory("My tool options");
 int main(int argc, const char **argv) {
-  CommonOptionsParser OptionsParser(argc, argv, MyToolCategory);
-  ClangTool Tool(OptionsParser.getCompilations(),
+  clang::tooling::CommonOptionsParser OptionsParser(argc, argv, MyToolCategory);
+  clang::tooling::ClangTool Tool(OptionsParser.getCompilations(),
                  OptionsParser.getSourcePathList());
-  return Tool.run(newFrontendActionFactory<DeclarativeCheckingAction>().get());
+  return Tool.run(clang::tooling::newFrontendActionFactory<DeclarativeCheckingAction>().get());
 }
