@@ -1,10 +1,11 @@
-#include <set>
 #include <map>
+#include <set>
 #include <string>
 
 #include "Andersen.h"
 #include "CallGraph.h"
 #include "DeclarativeCheckingVisitor.h"
+#include "DependencyGraph.h"
 
 using namespace clang::tooling;
 using namespace llvm;
