@@ -2,7 +2,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/CommandLine.h"
+// #include "llvm/Support/CommandLine.h"
 
 #include "DependencyGraph.h"
 
@@ -14,19 +14,19 @@
 
 using namespace std;
 
-namespace declarative {
+using namespace declarative;
 
 // Declarative graph that keeps track of variables. Maintins the
 // invariant that if a variable is in the graph, then it is valid.
-class DependencyGraph {
+class DependencyGraph::DependencyGraphImpl {
 
 public:
 
   // Empty DeclarativeGraph
-  DependencyGraph(){};
+  DependencyGraphImpl(){};
 
   // Destructor
-  ~DependencyGraph(){
+  ~DependencyGraphImpl(){
     for (pair<string, Node*> P : VarToNode){
       delete(P.second);
     }
@@ -53,8 +53,8 @@ public:
     set<Node*> TempHeadOf;
     for (string Dep : Rhs){
       if (VarToNode.find(Dep) == VarToNode.end()){
-        llvm::outs() << "ERROR: The variable " << Dep << " is undeclared"
-          " in this graph when assigning to " << Var << "\n";
+        // llvm::outs() << "ERROR: The variable " << Dep << " is undeclared"
+        //  " in this graph when assigning to " << Var << "\n";
       } else {
         TempHeadOf.insert(VarToNode[Dep]);
       }
@@ -114,7 +114,36 @@ private:
 
 };
 
+DependencyGraph::DependencyGraph():
+  Pimpl(new DependencyGraph::DependencyGraphImpl()){};
+DependencyGraph::~DependencyGraph()
+  {delete(DependencyGraph::Pimpl);};
 
-} // end namespace declarative
+// Removes variables from the graph
+void DependencyGraph::remove(const string Var){ Pimpl->remove(Var); };
 
+// Inserts variables in the graph with dependencies
+void DependencyGraph::insert(const string Var, const set<string> Rhs){
+  Pimpl->insert(Var, Rhs);
+};
+
+// Finds reachable variables in the graph
+const set<string> DependencyGraph::reachable(const string Var){
+  return Pimpl->reachable(Var);
+};
+
+// Ignores unwanted variables in the graph
+void DependencyGraph::ignore(const set<string> UnwantedVars){
+  Pimpl->ignore(UnwantedVars);
+};
+
+// Figure out if the variable is present in the graph
+bool DependencyGraph::isPresent(const string Variable){
+  return Pimpl->isPresent(Variable);
+};
+
+// Figure out if the variable is absent in the graph
+bool DependencyGraph::isAbsent(const string Variable){
+  return Pimpl->isAbsent(Variable);
+};
 

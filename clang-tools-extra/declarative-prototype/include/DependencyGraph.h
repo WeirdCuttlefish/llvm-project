@@ -18,6 +18,10 @@ class DependencyGraph {
 
 public:
 
+  // Constructor and destructors
+  DependencyGraph();
+  ~DependencyGraph();
+
   // Removes variables from the graph
   void remove(const string Var);
 
@@ -35,6 +39,11 @@ public:
 
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable);
+
+private:
+
+  class DependencyGraphImpl;
+  DependencyGraphImpl* Pimpl;
 
 };
 

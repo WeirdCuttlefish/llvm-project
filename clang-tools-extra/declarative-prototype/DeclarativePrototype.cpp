@@ -12,6 +12,8 @@ using namespace llvm;
 using namespace clang;
 using namespace std;
 
+using namespace declarative;
+
 /*
 DeclarativeCheckingConsumer:
 1. Invokes DeclarativeCheckingFunctionVisitorGlobal on global variables
@@ -23,6 +25,12 @@ public:
   explicit DeclarativeCheckingConsumer(ASTContext *Context) {}
 
   virtual void HandleTranslationUnit(clang::ASTContext &Context) {
+
+    DependencyGraph *d = new DependencyGraph();
+    d->insert("Hello", set<string>());
+    set<string> depends;
+    depends.insert("Hello");
+    d->insert("MyMom", depends);
 
     #ifdef DEBUG
     Context.getTranslationUnitDecl()->dump();
