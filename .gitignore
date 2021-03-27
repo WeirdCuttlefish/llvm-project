@@ -63,3 +63,4 @@ pythonenv*
 /clang/utils/analyzer/projects/*/PatchedSource
 /clang/utils/analyzer/projects/*/ScanBuildResults
 /clang/utils/analyzer/projects/*/RefScanBuildResults
+/clang-tools-extra/declarative-prototype/build
