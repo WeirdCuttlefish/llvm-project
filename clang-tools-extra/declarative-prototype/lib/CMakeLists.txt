@@ -1,5 +1,6 @@
 add_library(Declarative 
     DependencyGraph.cpp
+    DeclarativeFunctionVisitor.cpp
 )
 
 include_directories(

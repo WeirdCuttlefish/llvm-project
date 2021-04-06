@@ -22,6 +22,15 @@ public:
   DependencyGraph();
   ~DependencyGraph();
 
+  // Printing
+  string toString();
+
+  // Enter scope
+  void entry();
+
+  // Exit scope
+  void exit();
+
   // Removes variables from the graph
   void remove(const string Var);
 

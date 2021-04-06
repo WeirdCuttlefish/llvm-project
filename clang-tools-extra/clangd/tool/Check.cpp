@@ -179,6 +179,9 @@ public:
       elog("Failed to build AST");
       return false;
     }
+
+    llvm::outs() << AST->getASTContext().getTranslationUnitDecl();
+
     ErrCount += showErrors(llvm::makeArrayRef(AST->getDiagnostics())
                                .drop_front(Preamble->Diags.size()));
 

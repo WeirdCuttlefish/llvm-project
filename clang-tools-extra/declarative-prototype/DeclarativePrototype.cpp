@@ -4,13 +4,18 @@
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
+#include "llvm/Support/CommandLine.h"
+
+#include "DeclarativeFunctionVisitor.h"
 #include "DependencyGraph.h"
+
 #include <map>
 #include <set>
 #include <string>
 
 
 using namespace declarative;
+using namespace visitor;
 
 /*
 DeclarativeCheckingConsumer:
@@ -26,11 +31,15 @@ public:
 
     DependencyGraph *D = new DependencyGraph();
     D->insert("Hello", set<string>());
-    set<string> Depends;
-    Depends.insert("Hello");
-    D->insert("MyMom", Depends);
+    // set<string> Depends;
+    // Depends.insert("Hello");
+    // D->insert("MyMom", Depends);
+    // llvm::outs() << D->toString();
 
     Context.getTranslationUnitDecl()->dump();
+
+    DeclarativeFunctionVisitor *FunctionVisitor = new DeclarativeFunctionVisitor();
+    FunctionVisitor->TraverseDecl(Context.getTranslationUnitDecl());
   }
 
 };
