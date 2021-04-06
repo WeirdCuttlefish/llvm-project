@@ -27,6 +27,7 @@ add_clang_library(clangStaticAnalyzerCheckers
   ConversionChecker.cpp
   CXXSelfAssignmentChecker.cpp
   DeadStoresChecker.cpp
+  DeclarativeChecker.cpp
   DebugCheckers.cpp
   DebugIteratorModeling.cpp
   DeleteWithNonVirtualDtorChecker.cpp
@@ -122,4 +123,11 @@ add_clang_library(clangStaticAnalyzerCheckers
   clangBasic
   clangLex
   clangStaticAnalyzerCore
+<<<<<<< Updated upstream
+=======
+  clangStaticAnalyzerDeclarative
+
+  DEPENDS
+  omp_gen
+>>>>>>> Stashed changes
   )
