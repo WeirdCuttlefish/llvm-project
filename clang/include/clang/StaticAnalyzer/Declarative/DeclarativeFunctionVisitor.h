@@ -22,6 +22,7 @@ public:
   ~DeclarativeFunctionVisitor();
 
   bool VisitVarDecl(VarDecl *Declaration);
+  bool VisitBinaryOperator(BinaryOperator *Operator);
 
 private:
   class DeclarativeFunctionVisitorImpl;

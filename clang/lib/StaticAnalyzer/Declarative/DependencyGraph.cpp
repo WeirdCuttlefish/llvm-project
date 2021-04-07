@@ -22,7 +22,7 @@ class DependencyGraphElementImpl {
 public:
 
   // Empty DeclarativeGraph
-  DependencyGraphElementImpl(){};
+  DependencyGraphElementImpl(){}
 
   // Copy Constructor
   DependencyGraphElementImpl(const DependencyGraphElementImpl &GraphIn){
@@ -40,14 +40,14 @@ public:
       }
     }
 
-  };
+  }
 
   // Destructor
   ~DependencyGraphElementImpl(){
     for (pair<string, Node*> P : VarToNode){
       delete(P.second);
     }
-  };
+  }
 
   // Printing
   string toString(){
@@ -73,7 +73,7 @@ public:
     }
     delete(Target);
     VarToNode.erase(Var);
-  };
+  }
 
   // Inserts variables in the graph with dependencies
   void insert(const string Var, const set<string> Rhs){
@@ -125,12 +125,12 @@ public:
   // Figure out if the variable is present in the graph
   bool isPresent(const string Variable){
     return VarToNode.find(Variable) != VarToNode.end();
-  };
+  }
 
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable){
     return !isPresent(Variable);
-  };
+  }
 
 private:
 
@@ -172,14 +172,14 @@ class DependencyGraph::DependencyGraphImpl {
 public:
   DependencyGraphImpl(){
     GraphStack.push(new DependencyGraphElementImpl());
-  };
+  }
   ~DependencyGraphImpl(){
     while (!GraphStack.empty()){
       DependencyGraphElementImpl *N = GraphStack.top();
       delete(N);
       GraphStack.pop();
     }
-  };
+  }
 
   // Convert to String
   string toString(){
@@ -195,32 +195,32 @@ public:
   // Removes variables from the graph
   void remove(const string Var){
     GraphStack.top()->remove(Var);
-  };
+  }
 
   // Inserts variables in the graph with dependencies
   void insert(const string Var, const set<string> Rhs){
     GraphStack.top()->insert(Var, Rhs);
-  };
+  }
 
   // Finds reachable variables in the graph
   const set<string> reachable(const string Var){
     return GraphStack.top()->reachable(Var);
-  };
+  }
 
   // Ignores unwanted variables in the graph
   void ignore(const set<string> UnwantedVars){
     GraphStack.top()->ignore(UnwantedVars);
-  };
+  }
 
   // Figure out if the variable is present in the graph
   bool isPresent(const string Variable){
     return GraphStack.top()->isPresent(Variable);
-  };
+  }
 
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable){
     return GraphStack.top()->isAbsent(Variable);
-  };
+  }
 
 private:
   stack<DependencyGraphElementImpl*> GraphStack;
@@ -230,45 +230,45 @@ private:
 
 
 DependencyGraph::DependencyGraph():
-  Pimpl(new DependencyGraph::DependencyGraphImpl()){};
+  Pimpl(new DependencyGraph::DependencyGraphImpl()){}
 DependencyGraph::~DependencyGraph()
-  {delete(DependencyGraph::Pimpl);};
+  {delete(DependencyGraph::Pimpl);}
 
 // Convert to a string
 string DependencyGraph::toString(){
   return Pimpl->toString();
-};
+}
 
 // Enter scope
-void DependencyGraph::entry(){ Pimpl->entry(); };
+void DependencyGraph::entry(){ Pimpl->entry(); }
 
 // Exit scope
-void DependencyGraph::exit(){ Pimpl->exit(); };
+void DependencyGraph::exit(){ Pimpl->exit(); }
 
 // Removes variables from the graph
-void DependencyGraph::remove(const string Var){ Pimpl->remove(Var); };
+void DependencyGraph::remove(const string Var){ Pimpl->remove(Var); }
 
 // Inserts variables in the graph with dependencies
 void DependencyGraph::insert(const string Var, const set<string> Rhs){
   Pimpl->insert(Var, Rhs);
-};
+}
 
 // Finds reachable variables in the graph
 const set<string> DependencyGraph::reachable(const string Var){
   return Pimpl->reachable(Var);
-};
+}
 
 // Ignores unwanted variables in the graph
 void DependencyGraph::ignore(const set<string> UnwantedVars){
   Pimpl->ignore(UnwantedVars);
-};
+}
 
 // Figure out if the variable is present in the graph
 bool DependencyGraph::isPresent(const string Variable){
   return Pimpl->isPresent(Variable);
-};
+}
 
 // Figure out if the variable is absent in the graph
 bool DependencyGraph::isAbsent(const string Variable){
   return Pimpl->isAbsent(Variable);
-};
+}

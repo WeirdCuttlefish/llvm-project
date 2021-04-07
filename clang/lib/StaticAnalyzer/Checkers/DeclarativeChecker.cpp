@@ -16,7 +16,7 @@
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Declarative/CollectDeclRefExprVisitor.h"
+#include "clang/StaticAnalyzer/Declarative/DeclarativeFunctionVisitor.h"
 #include "llvm/Support/CommandLine.h"
 #include <utility>
 
@@ -40,18 +40,15 @@ DeclarativeChecker::DeclarativeChecker(){}
 void DeclarativeChecker::checkASTDecl(const FunctionDecl *D, 
                                       AnalysisManager &Mgr, 
                                       BugReporter &BR) const {
-  D->dump();
-  CollectDeclRefExprVisitor Collector;
-  Collector.TraverseDecl((Decl*) D);
 
-  set<string> U = Collector.getVariable();
+  if (D->hasBody()){
+    visitor::DeclarativeFunctionVisitor DFV;
 
-  llvm::outs() << "COLLECTED VARIABLES: ";
-  for (string u : U){
-    llvm::outs() << u << ", ";
+    llvm::outs() << "Starting Declarative Analysis...\n";
+    D->dump();
+    DFV.TraverseDecl((Decl*) D);
+    llvm::outs() << "Finished Declarative Analysis! By the developer a coffee!\n";
   }
-  llvm::outs() << "\n";
-
 
 }
 
