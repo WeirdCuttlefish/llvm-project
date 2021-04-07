@@ -30,6 +30,7 @@ add_clang_library(clangStaticAnalyzerCheckers
   ConversionChecker.cpp
   CXXSelfAssignmentChecker.cpp
   DeadStoresChecker.cpp
+  DeclarativeChecker.cpp
   DebugCheckers.cpp
   DebugContainerModeling.cpp
   DebugIteratorModeling.cpp
@@ -137,6 +138,7 @@ add_clang_library(clangStaticAnalyzerCheckers
   clangBasic
   clangLex
   clangStaticAnalyzerCore
+  clangStaticAnalyzerDeclarative
 
   DEPENDS
   omp_gen

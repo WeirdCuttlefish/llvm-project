@@ -551,6 +551,10 @@ def StdCLibraryFunctionArgsChecker : Checker<"StdCLibraryFunctionArgs">,
 
 let ParentPackage = Cplusplus in {
 
+def DeclarativeChecker : Checker<"DeclarativeChecker">,
+  HelpText<"Checks for Declarative bugs">,
+  Documentation<NotDocumented>;
+
 def InnerPointerChecker : Checker<"InnerPointer">,
   HelpText<"Check for inner pointers of C++ containers used after "
            "re/deallocation">,
