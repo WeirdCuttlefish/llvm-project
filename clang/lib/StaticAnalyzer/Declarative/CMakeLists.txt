@@ -6,6 +6,7 @@ set(LLVM_LINK_COMPONENTS
 add_clang_library(clangStaticAnalyzerDeclarative
   CollectDeclRefExprVisitor.cpp
   DependencyGraph.cpp
+  DeclarativeFunctionVisitor.cpp
 
   LINK_LIBS
   clangAST
