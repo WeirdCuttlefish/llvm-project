@@ -8,8 +8,8 @@
 #include <list>
 #include <map>
 #include <set>
-#include <string>
 #include <stack>
+#include <string>
 
 
 using namespace std;
@@ -149,11 +149,25 @@ public:
   }
 
   // Get variables in the graph
-  set<string> getVars(set<string> &Vars){
+  void getVars(set<string> &Vars){
     for (pair<string, Node*> P : VarToNode){
       Vars.insert(P.first);
     }
-    return Vars;
+  }
+
+  // Merge edges of graph
+  // (Maintain that Target's varables is subset of this))
+  void mergeEdges(DependencyGraphElementImpl *Target){
+    set<string> Vars;
+    getVars(Vars);
+    for (string Var : Vars){
+      for (Node *Tail : Target->VarToNode[Var]->HeadOf){
+        this->VarToNode[Var]->HeadOf.insert(Tail);
+      }
+      for (Node *Head : Target->VarToNode[Var]->TailOf){
+        this->VarToNode[Var]->TailOf.insert(Head);
+      }
+    }
   }
 
 private:
@@ -240,22 +254,34 @@ public:
     return GraphStack.top()->isAbsent(Variable);
   }
 
-  // TODO Entering an if statement
+  // Entering an if statement
   void entryScope(){};
 
-  // TODO Entering a branch
+  // Entering a branch
   void entryBranch(){
     GraphStack.push(new DependencyGraphElementImpl(*GraphStack.top()));
   };
 
-  // FIXME Exiting a branch (Maybe not needed)
+  // Exiting a branch (Maybe not needed)
   void exitBranch(){
     MergeStack.push(new DependencyGraphElementImpl(*GraphStack.top()));
     GraphStack.pop();
   };
 
-  // TODO Exiting an if statement
+  // FIXME Exiting an if statement
   void exitScope(){
+    DependencyGraphElementImpl *Curr = GraphStack.top();
+    while (!MergeStack.empty()){
+      DependencyGraphElementImpl *Target = MergeStack.top();
+      MergeStack.pop();
+
+      set<string> Diff;
+      diffGraphs(Curr, Target, Diff);
+      Curr->ignore(Diff);
+      Curr->mergeEdges(Target);
+
+      delete(Target);
+    }
   };
 
 
@@ -266,7 +292,8 @@ private:
   set<string> diffGraphs(DependencyGraphElementImpl *E1, 
                          DependencyGraphElementImpl *E2,
                          set<string> &Diff){
-    for (string U : E1->getVars(Diff)){
+    E1->getVars(Diff);
+    for (string U : Diff){
       if (!E2->isPresent(U)){
         Diff.insert(U);
       }
