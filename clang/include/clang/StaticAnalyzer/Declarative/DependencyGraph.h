@@ -25,11 +25,17 @@ public:
   // Printing
   string toString();
 
-  // Enter scope
-  void entry();
+  // Entering an if statement
+  void entryScope();
 
-  // Exit scope
-  void exit();
+  // Entering a branch
+  void entryBranch();
+
+  // Exiting a branch
+  void exitBranch();
+
+  // Exiting an if statement
+  void exitScope();
 
   // Removes variables from the graph
   void remove(const string Var);

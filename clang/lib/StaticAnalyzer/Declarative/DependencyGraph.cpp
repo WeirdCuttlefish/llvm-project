@@ -203,10 +203,16 @@ public:
   }
 
   // TODO Entering an if statement
-  void entry(){};
+  void entryScope(){};
+
+  // TODO Entering a branch
+  void entryBranch(){};
+
+  // TODO Exiting a branch
+  void exitBranch(){};
 
   // TODO Exiting an if statement
-  void exit(){};
+  void exitScope(){};
 
   // Removes variables from the graph
   void remove(const string Var){
@@ -256,10 +262,16 @@ string DependencyGraph::toString(){
 }
 
 // Enter scope
-void DependencyGraph::entry(){ Pimpl->entry(); }
+void DependencyGraph::entryScope(){ Pimpl->entryScope(); }
 
 // Exit scope
-void DependencyGraph::exit(){ Pimpl->exit(); }
+void DependencyGraph::exitScope(){ Pimpl->exitScope(); }
+
+// Exit branch
+void DependencyGraph::entryBranch(){ Pimpl->entryBranch(); }
+
+// Exit branch
+void DependencyGraph::exitBranch(){ Pimpl->exitBranch(); }
 
 // Removes variables from the graph
 void DependencyGraph::remove(const string Var){ Pimpl->remove(Var); }
