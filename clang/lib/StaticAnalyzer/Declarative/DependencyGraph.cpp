@@ -5,10 +5,11 @@
 #include "clang/StaticAnalyzer/Declarative/DependencyGraph.h"
 #include "llvm/Support/CommandLine.h"
 
+#include <list>
 #include <map>
 #include <set>
-#include <stack>
 #include <string>
+#include <stack>
 
 
 using namespace std;
@@ -40,7 +41,6 @@ public:
         P.second->HeadOf.insert(GraphOut->VarToNode[N->Name]);
       }
     }
-
   }
 
   // Destructor
@@ -148,6 +148,14 @@ public:
     return !isPresent(Variable);
   }
 
+  // Get variables in the graph
+  set<string> getVars(set<string> &Vars){
+    for (pair<string, Node*> P : VarToNode){
+      Vars.insert(P.first);
+    }
+    return Vars;
+  }
+
 private:
 
   struct Node {
@@ -202,18 +210,6 @@ public:
     return GraphStack.top()->toString();
   }
 
-  // TODO Entering an if statement
-  void entryScope(){};
-
-  // TODO Entering a branch
-  void entryBranch(){};
-
-  // TODO Exiting a branch
-  void exitBranch(){};
-
-  // TODO Exiting an if statement
-  void exitScope(){};
-
   // Removes variables from the graph
   void remove(const string Var){
     GraphStack.top()->remove(Var);
@@ -244,8 +240,40 @@ public:
     return GraphStack.top()->isAbsent(Variable);
   }
 
+  // TODO Entering an if statement
+  void entryScope(){};
+
+  // TODO Entering a branch
+  void entryBranch(){
+    GraphStack.push(new DependencyGraphElementImpl(*GraphStack.top()));
+  };
+
+  // FIXME Exiting a branch (Maybe not needed)
+  void exitBranch(){
+    MergeStack.push(new DependencyGraphElementImpl(*GraphStack.top()));
+    GraphStack.pop();
+  };
+
+  // TODO Exiting an if statement
+  void exitScope(){
+  };
+
+
 private:
   stack<DependencyGraphElementImpl*> GraphStack;
+  stack<DependencyGraphElementImpl*> MergeStack;
+
+  set<string> diffGraphs(DependencyGraphElementImpl *E1, 
+                         DependencyGraphElementImpl *E2,
+                         set<string> &Diff){
+    for (string U : E1->getVars(Diff)){
+      if (!E2->isPresent(U)){
+        Diff.insert(U);
+      }
+    }
+    return Diff;
+  }
+
 
 };
 
