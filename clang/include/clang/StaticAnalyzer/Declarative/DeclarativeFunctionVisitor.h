@@ -8,9 +8,13 @@ Currently ignores the following:
 #ifndef CLANG_DECLARATIVE_FUNCTIONVISITOR_H
 #define CLANG_DECLARATIVE_FUNCTIONVISITOR_H
 
+#include<set>
+#include<string>
+
 #include "clang/AST/RecursiveASTVisitor.h"
 
 using namespace clang;
+using namespace std;
 
 namespace visitor{
 
@@ -18,11 +22,14 @@ class DeclarativeFunctionVisitor :
   public clang::RecursiveASTVisitor<DeclarativeFunctionVisitor>{
 
 public:
-  DeclarativeFunctionVisitor();
+  DeclarativeFunctionVisitor(ASTContext &Context);
   ~DeclarativeFunctionVisitor();
 
   bool VisitVarDecl(VarDecl *Declaration);
   bool VisitBinaryOperator(BinaryOperator *Operator);
+  bool VisitDeclRefExpr(DeclRefExpr *Declaration);
+
+  set<string>* getBugs();
 
 private:
   class DeclarativeFunctionVisitorImpl;

@@ -25,9 +25,10 @@ class DeclarativeFunctionVisitor::DeclarativeFunctionVisitorImpl :
   >{
 
 public:
-  DeclarativeFunctionVisitorImpl(){
-    Graph = new DependencyGraph();
-  };
+  DeclarativeFunctionVisitorImpl(ASTContext &Context):
+    Graph(new DependencyGraph()),
+    Context(Context)
+    {};
   ~DeclarativeFunctionVisitorImpl(){
     delete(Graph);
   };
@@ -52,33 +53,52 @@ public:
 
     if (Operator->isAssignmentOp()){
 
-      CollectDeclRefExprVisitor Collector;
+      DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS());
+      if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
+        CollectDeclRefExprVisitor Collector;
 
-      Collector.TraverseStmt(Operator->getRHS());
-      set<string> Us = Collector.getVariable();
+        Collector.TraverseStmt(Operator->getRHS());
+        set<string> Us = Collector.getVariable();
 
-      string LhsName = dyn_cast<DeclRefExpr>(Operator->getLHS())
-                       ->getNameInfo()
-                       .getAsString();
+        string LhsName = dyn_cast<DeclRefExpr>(Operator->getLHS())
+                         ->getNameInfo()
+                         .getAsString();
 
-      for (string reachable : Graph->reachable(LhsName)){
-        Graph->remove(reachable);
+        for (string reachable : Graph->reachable(LhsName)){
+          Graph->remove(reachable);
+        }
+
+        Graph->insert(LhsName, Us);
+
+        llvm::outs() << Graph->toString();
       }
-
-      Graph->insert(LhsName, Us);
-
-      llvm::outs() << Graph->toString();
     }
     return true;
   }
 
+  bool VisitDeclRefExpr(DeclRefExpr *Declaration){
+    string Name = Declaration->getNameInfo().getAsString();
+    if (Graph->isAbsent(Name)){
+      BugReports->insert(Name + " is no longer valid in " + 
+          Declaration->getLocation().printToString(
+            Context.getSourceManager()));
+    }
+    return true;
+  }
+
+  set<string>* GetBugs(){
+    return BugReports;
+  }
+
 private:
  DependencyGraph *Graph;
+ ASTContext &Context;
+ set<string> *BugReports = new set<string>();
   
 }; 
 
-DeclarativeFunctionVisitor::DeclarativeFunctionVisitor():
-  Pimpl(new DeclarativeFunctionVisitorImpl()){}
+DeclarativeFunctionVisitor::DeclarativeFunctionVisitor(ASTContext &Context):
+  Pimpl(new DeclarativeFunctionVisitorImpl(Context)){}
 DeclarativeFunctionVisitor::~DeclarativeFunctionVisitor(){
   delete(Pimpl);
 }
@@ -87,4 +107,10 @@ bool DeclarativeFunctionVisitor::VisitVarDecl(VarDecl *Declaration){
 }
 bool DeclarativeFunctionVisitor::VisitBinaryOperator(BinaryOperator *Operator){
   return Pimpl->VisitBinaryOperator(Operator);
+}
+bool DeclarativeFunctionVisitor::VisitDeclRefExpr(DeclRefExpr *Declaration){
+  return Pimpl->VisitDeclRefExpr(Declaration);
+}
+set<string>* DeclarativeFunctionVisitor::getBugs(){
+  return Pimpl->GetBugs();
 }

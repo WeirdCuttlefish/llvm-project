@@ -3,6 +3,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Declarative/DependencyGraph.h"
+#include "llvm/Support/CommandLine.h"
 
 #include <map>
 #include <set>
@@ -107,9 +108,9 @@ public:
     while (!Stack.empty()){
       Node* CurrNode = Stack.top();
       Stack.pop();
-      if (Visited.find(CurrNode->Name) != Visited.end()){
-        Visited.insert(Var);
-        for (Node *N : VarToNode[Var]->TailOf){
+      if (Visited.find(CurrNode->Name) == Visited.end()){
+        Visited.insert(CurrNode->Name);
+        for (Node *N : VarToNode[CurrNode->Name]->TailOf){
           Stack.push(N);
         }
       }
@@ -118,8 +119,23 @@ public:
     return Visited;
   }
 
+  // Shorts the graph
+  void shortGraph(const string U){
+    for (Node *H : VarToNode[U]->TailOf){
+      for (Node *T : VarToNode[U]->HeadOf){
+        H->HeadOf.erase(VarToNode[U]);
+        T->TailOf.erase(VarToNode[U]);
+        H->HeadOf.insert(T);
+        T->TailOf.insert(H);
+      }
+    }
+  }
+
   // Ignores unwanted variables in the graph
   void ignore(const set<string> UnwantedVars){
+    for (string U : UnwantedVars){
+      shortGraph(U);
+    }
   }
 
   // Figure out if the variable is present in the graph
