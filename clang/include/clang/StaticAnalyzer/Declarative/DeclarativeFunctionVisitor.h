@@ -31,6 +31,7 @@ public:
   bool VisitBinaryOperator(BinaryOperator *Operator);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
   bool TraverseIfStmt(IfStmt *If);
+  bool TraverseWhileStmt(WhileStmt *While);
 
   set<string>* getBugs();
 

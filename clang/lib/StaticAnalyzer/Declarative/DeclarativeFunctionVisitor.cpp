@@ -104,6 +104,20 @@ public:
     return true;
   }
 
+  bool TraverseWhileStmt(WhileStmt *While){
+    Stmt *Body = While->getBody();
+
+    Graph->entryScope();
+
+    Graph->entryBranch();
+    this->TraverseStmt(Body);
+    Graph->exitBranch();
+
+    Graph->exitScope();
+
+    return true;
+  }
+
   set<string>* GetBugs(){
     return BugReports;
   }
@@ -131,6 +145,9 @@ bool DeclarativeFunctionVisitor::VisitDeclRefExpr(DeclRefExpr *Declaration){
 }
 bool DeclarativeFunctionVisitor::TraverseIfStmt(IfStmt *If){
   return Pimpl->TraverseIfStmt(If);
+}
+bool DeclarativeFunctionVisitor::TraverseWhileStmt(WhileStmt *While){
+  return Pimpl->TraverseWhileStmt(While);
 }
 set<string>* DeclarativeFunctionVisitor::getBugs(){
   return Pimpl->GetBugs();
