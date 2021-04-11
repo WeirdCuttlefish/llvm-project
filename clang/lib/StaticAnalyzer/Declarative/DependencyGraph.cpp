@@ -12,6 +12,10 @@
 #include <string>
 
 
+struct Hello{
+  set<string> S;
+};
+
 using namespace std;
 
 using namespace declarative;
@@ -28,17 +32,16 @@ public:
 
   // Copy Constructor
   DependencyGraphElementImpl(const DependencyGraphElementImpl &GraphIn){
-    DependencyGraphElementImpl *GraphOut = new DependencyGraphElementImpl();
     for (pair<string, Node*> P : GraphIn.VarToNode){
-      GraphOut->VarToNode[P.first] = new Node();
-      GraphOut->VarToNode[P.first]->Name = P.first;
+      this->VarToNode[P.first] = new Node();
+      this->VarToNode[P.first]->Name = P.first;
     }
-    for (pair<string, Node*> P : GraphOut->VarToNode){
+    for (pair<string, Node*> P : this->VarToNode){
       for (Node* N : GraphIn.VarToNode.at(P.first)->TailOf){
-        P.second->TailOf.insert(GraphOut->VarToNode[N->Name]);
+        P.second->TailOf.insert(this->VarToNode[N->Name]);
       }
       for (Node* N : GraphIn.VarToNode.at(P.first)->HeadOf){
-        P.second->HeadOf.insert(GraphOut->VarToNode[N->Name]);
+        P.second->HeadOf.insert(this->VarToNode[N->Name]);
       }
     }
   }
@@ -70,7 +73,7 @@ public:
       N->TailOf.erase(Target);
     }
     for (Node *N : TempTailOf){
-      N->TailOf.erase(Target);
+      N->HeadOf.erase(Target);
     }
     delete(Target);
     VarToNode.erase(Var);
@@ -161,11 +164,13 @@ public:
     set<string> Vars;
     getVars(Vars);
     for (string Var : Vars){
-      for (Node *Tail : Target->VarToNode[Var]->HeadOf){
-        this->VarToNode[Var]->HeadOf.insert(Tail);
-      }
-      for (Node *Head : Target->VarToNode[Var]->TailOf){
-        this->VarToNode[Var]->TailOf.insert(Head);
+      if (Target->isPresent(Var)){
+        for (Node *Tail : Target->VarToNode[Var]->HeadOf){
+          this->VarToNode[Var]->HeadOf.insert(Tail);
+        }
+        for (Node *Head : Target->VarToNode[Var]->TailOf){
+          this->VarToNode[Var]->TailOf.insert(Head);
+        }
       }
     }
   }
@@ -259,16 +264,17 @@ public:
 
   // Entering a branch
   void entryBranch(){
-    GraphStack.push(new DependencyGraphElementImpl(*GraphStack.top()));
+    DependencyGraphElementImpl Top = *GraphStack.top();
+    GraphStack.push(new DependencyGraphElementImpl(Top));
   };
 
   // Exiting a branch (Maybe not needed)
   void exitBranch(){
-    MergeStack.push(new DependencyGraphElementImpl(*GraphStack.top()));
+    MergeStack.push(GraphStack.top());
     GraphStack.pop();
   };
 
-  // FIXME Exiting an if statement
+  // Exiting an if statement
   void exitScope(){
     DependencyGraphElementImpl *Curr = GraphStack.top();
     while (!MergeStack.empty()){
@@ -277,8 +283,20 @@ public:
 
       set<string> Diff;
       diffGraphs(Curr, Target, Diff);
+
+      // FIXME Ignore step might not be needed...
       Curr->ignore(Diff);
+
+      // Merge edges
       Curr->mergeEdges(Target);
+
+      // Invalidate 
+      for (string D : Diff){
+        set<string> Reach = Curr->reachable(D);
+        for (string U : Reach){
+          Curr->remove(U);
+        }
+      }
 
       delete(Target);
     }
@@ -289,16 +307,16 @@ private:
   stack<DependencyGraphElementImpl*> GraphStack;
   stack<DependencyGraphElementImpl*> MergeStack;
 
-  set<string> diffGraphs(DependencyGraphElementImpl *E1, 
+  void diffGraphs(DependencyGraphElementImpl *E1, 
                          DependencyGraphElementImpl *E2,
                          set<string> &Diff){
-    E1->getVars(Diff);
-    for (string U : Diff){
-      if (!E2->isPresent(U)){
+    set<string> E1Vars;
+    E1->getVars(E1Vars);
+    for (string U : E1Vars){
+      if (E2->isAbsent(U)){
         Diff.insert(U);
       }
     }
-    return Diff;
   }
 
 

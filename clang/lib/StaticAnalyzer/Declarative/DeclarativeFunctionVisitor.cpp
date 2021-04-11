@@ -44,8 +44,6 @@ public:
     }
 
     Graph->insert(Declaration->getNameAsString(), Us);
-
-    llvm::outs() << Graph->toString();
     return true;
   }
 
@@ -70,7 +68,6 @@ public:
 
         Graph->insert(LhsName, Us);
 
-        llvm::outs() << Graph->toString();
       }
     }
     return true;
@@ -83,6 +80,27 @@ public:
           Declaration->getLocation().printToString(
             Context.getSourceManager()));
     }
+    return true;
+  }
+
+  bool TraverseIfStmt(IfStmt *If){
+    Stmt *Then = If->getThen();
+    Stmt *Else = If->getElse();
+
+    Graph->entryScope();
+    
+    Graph->entryBranch();
+    this->TraverseStmt(Then);
+    Graph->exitBranch();
+
+    if (Else != NULL){
+      Graph->entryBranch();
+      this->TraverseStmt(Else);
+      Graph->exitBranch();
+    }
+
+    Graph->exitScope();
+
     return true;
   }
 
@@ -110,6 +128,9 @@ bool DeclarativeFunctionVisitor::VisitBinaryOperator(BinaryOperator *Operator){
 }
 bool DeclarativeFunctionVisitor::VisitDeclRefExpr(DeclRefExpr *Declaration){
   return Pimpl->VisitDeclRefExpr(Declaration);
+}
+bool DeclarativeFunctionVisitor::TraverseIfStmt(IfStmt *If){
+  return Pimpl->TraverseIfStmt(If);
 }
 set<string>* DeclarativeFunctionVisitor::getBugs(){
   return Pimpl->GetBugs();

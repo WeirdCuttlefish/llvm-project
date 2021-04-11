@@ -12,9 +12,11 @@ Currently ignores the following:
 #include<string>
 
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/StaticAnalyzer/Declarative/DependencyGraph.h"
 
 using namespace clang;
 using namespace std;
+using namespace declarative;
 
 namespace visitor{
 
@@ -28,6 +30,7 @@ public:
   bool VisitVarDecl(VarDecl *Declaration);
   bool VisitBinaryOperator(BinaryOperator *Operator);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
+  bool TraverseIfStmt(IfStmt *If);
 
   set<string>* getBugs();
 
