@@ -60,7 +60,6 @@ void DeclarativeChecker::checkASTDecl(const FunctionDecl *D,
                                       BugReporter &BR) const {
 
   if (D->hasBody()){
-    D->dump();
     visitor::DeclarativeFunctionVisitor DFV(Mgr.getASTContext());
     llvm::outs() << "Starting Declarative Analysis... ";
     llvm::outs() << D->getNameAsString();
@@ -70,7 +69,6 @@ void DeclarativeChecker::checkASTDecl(const FunctionDecl *D,
     for (string Bug : *Bugs){
       this->ReportBug(D, Bug, BR, Mgr);
     }
-
     llvm::outs() << "Finished Declarative Analysis! By the developer a coffee!\n";
   }
 

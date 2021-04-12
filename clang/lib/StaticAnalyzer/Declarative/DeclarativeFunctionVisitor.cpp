@@ -58,9 +58,7 @@ public:
         Collector.TraverseStmt(Operator->getRHS());
         set<string> Us = Collector.getVariable();
 
-        string LhsName = dyn_cast<DeclRefExpr>(Operator->getLHS())
-                         ->getNameInfo()
-                         .getAsString();
+        string LhsName = VD->getNameAsString();
 
         for (string reachable : Graph->reachable(LhsName)){
           Graph->remove(reachable);
@@ -74,11 +72,13 @@ public:
   }
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration){
-    string Name = Declaration->getNameInfo().getAsString();
-    if (Graph->isAbsent(Name)){
-      BugReports->insert(Name + " is no longer valid in " + 
-          Declaration->getLocation().printToString(
-            Context.getSourceManager()));
+    if (VarDecl* VD = dyn_cast<VarDecl>(Declaration->getDecl())){
+      string Name = VD->getNameAsString();
+      if (Graph->isAbsent(Name)){
+        BugReports->insert(Name + " is no longer valid in " + 
+            Declaration->getLocation().printToString(
+              Context.getSourceManager()));
+      }
     }
     return true;
   }

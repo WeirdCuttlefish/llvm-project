@@ -84,12 +84,12 @@ public:
     // Check if dependent variables are defined already
     set<Node*> TempHeadOf;
     for (string Dep : Rhs){
-      // if (VarToNode.find(Dep) == VarToNode.end()){
-      //   llvm::outs() << "ERROR: The variable " << Dep << " is undeclared"
-      //     " in this graph when assigning to " << Var << "\n";
-      // } else {
-        TempHeadOf.insert(VarToNode[Dep]);
-      // }
+      if (VarToNode.find(Dep) == VarToNode.end()){
+        llvm::outs() << "ERROR: The variable " << Dep << " is undeclared"
+          " in this graph when assigning to " << Var << "\n";
+      } else {
+       TempHeadOf.insert(VarToNode[Dep]);
+      }
     }
     // Add to the set of nodes
     Node *VarNode = new Node();
