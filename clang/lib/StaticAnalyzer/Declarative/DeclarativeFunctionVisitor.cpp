@@ -33,6 +33,15 @@ public:
     delete(Graph);
   };
 
+  bool VisitFunctionDecl(FunctionDecl *Declaration){
+    set<string> EmptySet;
+    for (ParmVarDecl *Param : Declaration->parameters()){
+      string ParamName = (dyn_cast<VarDecl>(Param))->getNameAsString();
+      Graph->insert(ParamName, EmptySet);
+    }
+    return true;
+  }
+
   bool VisitVarDecl(VarDecl *Declaration){
     CollectDeclRefExprVisitor Collector;
     set<string> Us;
@@ -73,11 +82,13 @@ public:
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration){
     if (VarDecl* VD = dyn_cast<VarDecl>(Declaration->getDecl())){
-      string Name = VD->getNameAsString();
-      if (Graph->isAbsent(Name)){
-        BugReports->insert(Name + " is no longer valid in " + 
-            Declaration->getLocation().printToString(
-              Context.getSourceManager()));
+      if (VD->isLocalVarDeclOrParm()){
+        string Name = VD->getNameAsString();
+        if (Graph->isAbsent(Name)){
+          BugReports->insert(Name + " is no longer valid in " + 
+              Declaration->getLocation().printToString(
+                Context.getSourceManager()));
+        }
       }
     }
     return true;
@@ -133,6 +144,9 @@ DeclarativeFunctionVisitor::DeclarativeFunctionVisitor(ASTContext &Context):
   Pimpl(new DeclarativeFunctionVisitorImpl(Context)){}
 DeclarativeFunctionVisitor::~DeclarativeFunctionVisitor(){
   delete(Pimpl);
+}
+bool DeclarativeFunctionVisitor::VisitFunctionDecl(FunctionDecl *Declaration){
+  return Pimpl->VisitFunctionDecl(Declaration);
 }
 bool DeclarativeFunctionVisitor::VisitVarDecl(VarDecl *Declaration){
   return Pimpl->VisitVarDecl(Declaration);

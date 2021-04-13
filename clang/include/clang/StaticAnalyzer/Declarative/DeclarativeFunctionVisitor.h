@@ -27,6 +27,7 @@ public:
   DeclarativeFunctionVisitor(ASTContext &Context);
   ~DeclarativeFunctionVisitor();
 
+  bool VisitFunctionDecl(FunctionDecl *Declaration);
   bool VisitVarDecl(VarDecl *Declaration);
   bool VisitBinaryOperator(BinaryOperator *Operator);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
