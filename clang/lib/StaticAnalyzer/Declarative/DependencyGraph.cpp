@@ -311,10 +311,12 @@ public:
       set<string> Diff2;
       diffGraphs(Curr, Target, Diff2);
       for (string D : Diff2){
-        set<string> Reach;
-        Curr->reachable(D, Reach);
-        for (string U : Reach){
-          Curr->remove(U);
+        if (Curr->isPresent(D)){
+          set<string> Reach;
+          Curr->reachable(D, Reach);
+          for (string U : Reach){
+            Curr->remove(U);
+          }
         }
       }
 

@@ -80,14 +80,15 @@ public:
 
           string LhsName = VD->getNameAsString();
 
-          set<string> Reach;
-          Graph->reachable(LhsName, Reach);
-          for (string reachable : Reach){
-            Graph->remove(reachable);
+          if (Graph->isPresent(LhsName)){
+            set<string> Reach;
+            Graph->reachable(LhsName, Reach);
+            for (string r : Reach){
+              if (Graph->isPresent(r))
+                Graph->remove(r);
+            }
           }
-
           Graph->insert(LhsName, *Us);
-
         }
       }
     }
