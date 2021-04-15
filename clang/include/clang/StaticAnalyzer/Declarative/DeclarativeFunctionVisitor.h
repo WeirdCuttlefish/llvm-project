@@ -35,7 +35,7 @@ public:
   bool TraverseIfStmt(IfStmt *If);
   bool TraverseWhileStmt(WhileStmt *While);
 
-  set<string>* getBugs();
+  set<pair<string, Decl*>>* getBugs();
 
 private:
   class DeclarativeFunctionVisitorImpl;

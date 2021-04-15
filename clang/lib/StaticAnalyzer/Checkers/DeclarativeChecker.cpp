@@ -38,7 +38,7 @@ public:
   ) const;
 
 private:
-  void ReportBug(const FunctionDecl *D, 
+  void ReportBug(const Decl *D, 
                  string Description, BugReporter &BR, 
                  AnalysisManager &Mgr) const {
     BR.EmitBasicReport(D, 
@@ -63,9 +63,9 @@ void DeclarativeChecker::checkASTDecl(const FunctionDecl *D,
     unique_ptr<visitor::DeclarativeFunctionVisitor> DFV(
         new visitor::DeclarativeFunctionVisitor(Mgr.getASTContext()));
     DFV->TraverseDecl((Decl*) D);
-    set<string> *Bugs =  DFV->getBugs();
-    for (string Bug : *Bugs){
-      this->ReportBug(D, Bug, BR, Mgr);
+    set<pair<string,Decl*>> *Bugs =  DFV->getBugs();
+    for (pair<string, Decl*> Bug : *Bugs){
+      this->ReportBug(Bug.second, Bug.first, BR, Mgr);
     }
   }
 

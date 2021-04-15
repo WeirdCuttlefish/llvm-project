@@ -100,9 +100,14 @@ public:
       if (VD->isLocalVarDeclOrParm()){
         string Name = VD->getNameAsString();
         if (Graph->isAbsent(Name)){
-          BugReports->insert(Name + " is no longer valid in " + 
-              Declaration->getLocation().printToString(
-                Context.getSourceManager()));
+          BugReports->insert(
+              pair<string, Decl*>(
+                Name + " is no longer valid in " + 
+                Declaration->getLocation().printToString(
+                Context.getSourceManager()),
+                dyn_cast<Decl>(Declaration)
+              )
+          );
         }
       }
     }
@@ -131,27 +136,27 @@ public:
   }
 
   bool TraverseWhileStmt(WhileStmt *While){
-    // Stmt *Body = While->getBody();
+    Stmt *Body = While->getBody();
 
-    // Graph->entryScope();
+    Graph->entryScope();
 
-    // Graph->entryBranch();
-    // this->TraverseStmt(Body);
-    // Graph->exitBranch();
+    Graph->entryBranch();
+    this->TraverseStmt(Body);
+    Graph->exitBranch();
 
-    // Graph->exitScope();
+    Graph->exitScope();
 
     return true;
   }
 
-  set<string>* GetBugs(){
+  set<pair<string, Decl*>>* GetBugs(){
     return BugReports;
   }
 
 private:
  DependencyGraph *Graph;
  ASTContext &Context;
- set<string> *BugReports = new set<string>();
+ set<pair<string, Decl*>> *BugReports = new set<pair<string,Decl*>>();
   
 }; 
 
@@ -181,6 +186,6 @@ bool DeclarativeFunctionVisitor::TraverseIfStmt(IfStmt *If){
 bool DeclarativeFunctionVisitor::TraverseWhileStmt(WhileStmt *While){
   return Pimpl->TraverseWhileStmt(While);
 }
-set<string>* DeclarativeFunctionVisitor::getBugs(){
+set<pair<string, Decl*>>* DeclarativeFunctionVisitor::getBugs(){
   return Pimpl->GetBugs();
 }
