@@ -60,7 +60,6 @@ void DeclarativeChecker::checkASTDecl(const FunctionDecl *D,
                                       BugReporter &BR) const {
 
   if (D->hasBody()){
-    D->dump();
     unique_ptr<visitor::DeclarativeFunctionVisitor> DFV(
         new visitor::DeclarativeFunctionVisitor(Mgr.getASTContext()));
     DFV->TraverseDecl((Decl*) D);

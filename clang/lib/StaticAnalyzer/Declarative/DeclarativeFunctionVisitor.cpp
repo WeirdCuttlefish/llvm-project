@@ -110,7 +110,6 @@ public:
   }
 
   bool TraverseIfStmt(IfStmt *If){
-    If->dump();
     Stmt *Then = If->getThen();
     Stmt *Else = If->getElse();
 
