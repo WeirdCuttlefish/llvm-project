@@ -41,13 +41,13 @@ public:
   void remove(const string Var);
 
   // Inserts variables in the graph with dependencies
-  void insert(const string Var, const set<string> Rhs);
+  void insert(const string Var, const set<string> &Rhs);
 
   // Finds reachable variables in the graph
-  const set<string> reachable(const string Var);
+  void reachable(const string Var, set<string> &Visited);
 
   // Ignores unwanted variables in the graph
-  void ignore(const set<string> UnwantedVars);
+  void ignore(const set<string> &UnwantedVars);
 
   // Figure out if the variable is present in the graph
   bool isPresent(const string Variable);

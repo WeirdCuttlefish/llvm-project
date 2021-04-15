@@ -22,10 +22,11 @@ class CollectDeclRefExprVisitor
   : public RecursiveASTVisitor<CollectDeclRefExprVisitor> {
 public:
   CollectDeclRefExprVisitor();
+  ~CollectDeclRefExprVisitor();
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
 
-  set<string> getVariable();
+  set<string> *getVariable();
 
   set<string> getCaller();
 

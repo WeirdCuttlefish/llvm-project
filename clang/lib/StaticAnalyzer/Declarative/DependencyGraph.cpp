@@ -33,15 +33,15 @@ public:
   // Copy Constructor
   DependencyGraphElementImpl(const DependencyGraphElementImpl &GraphIn){
     for (pair<string, Node*> P : GraphIn.VarToNode){
-      this->VarToNode[P.first] = new Node();
-      this->VarToNode[P.first]->Name = P.first;
+      VarToNode[P.first] = new Node();
+      VarToNode[P.first]->Name = P.first;
     }
-    for (pair<string, Node*> P : this->VarToNode){
-      for (Node* N : GraphIn.VarToNode.at(P.first)->TailOf){
-        P.second->TailOf.insert(this->VarToNode[N->Name]);
+    for (pair<string, Node*> P : GraphIn.VarToNode){
+      for (Node* N : P.second->TailOf){
+        VarToNode[P.first]->TailOf.insert(VarToNode[N->Name]);
       }
-      for (Node* N : GraphIn.VarToNode.at(P.first)->HeadOf){
-        P.second->HeadOf.insert(this->VarToNode[N->Name]);
+      for (Node* N : P.second->HeadOf){
+        VarToNode[P.first]->HeadOf.insert(VarToNode[N->Name]);
       }
     }
   }
@@ -66,45 +66,19 @@ public:
 
   // Removes variables from the graph
   void remove(const string Var){
-    Node *Target = VarToNode[Var];
-    set<Node*> TempHeadOf = Target->HeadOf;
-    set<Node*> TempTailOf = Target->TailOf;
-    for (Node *N : TempHeadOf){
-      N->TailOf.erase(Target);
-    }
-    for (Node *N : TempTailOf){
-      N->HeadOf.erase(Target);
-    }
-    delete(Target);
-    VarToNode.erase(Var);
+    deleteNode(Var);
   }
 
   // Inserts variables in the graph with dependencies
-  void insert(const string Var, const set<string> Rhs){
-    // Check if dependent variables are defined already
-    set<Node*> TempHeadOf;
-    for (string Dep : Rhs){
-      if (VarToNode.find(Dep) == VarToNode.end()){
-        llvm::outs() << "ERROR: The variable " << Dep << " is undeclared"
-          " in this graph when assigning to " << Var << "\n";
-      } else {
-       TempHeadOf.insert(VarToNode[Dep]);
-      }
+  void insert(const string Var, const set<string> &Rhs){
+    addNode(Var);
+    for (string S : Rhs){
+      addEdge(S, Var);
     }
-    // Add to the set of nodes
-    Node *VarNode = new Node();
-    VarNode->Name = Var;
-    VarNode->HeadOf = TempHeadOf;
-    // Let dependents know they are dependents
-    for (Node *N : TempHeadOf){
-      N->TailOf.insert(VarNode);
-    }
-    VarToNode[Var] = VarNode;
   }
 
   // Finds reachable variables in the graph
-  const set<string> reachable(const string Var){
-    set<string> Visited;
+  void reachable(const string Var, set<string> &Visited){
     stack<Node*> Stack;
     Stack.push(VarToNode[Var]);
 
@@ -118,24 +92,20 @@ public:
         }
       }
     }
-
-    return Visited;
   }
 
   // Shorts the graph
   void shortGraph(const string U){
     for (Node *H : VarToNode[U]->TailOf){
       for (Node *T : VarToNode[U]->HeadOf){
-        H->HeadOf.erase(VarToNode[U]);
-        T->TailOf.erase(VarToNode[U]);
-        H->HeadOf.insert(T);
-        T->TailOf.insert(H);
+        addEdge(T->Name, H->Name);
       }
     }
+    deleteNode(U);
   }
 
   // Ignores unwanted variables in the graph
-  void ignore(const set<string> UnwantedVars){
+  void ignore(const set<string> &UnwantedVars){
     for (string U : UnwantedVars){
       shortGraph(U);
     }
@@ -161,17 +131,10 @@ public:
   // Merge edges of graph
   // (Maintain that Target's varables is subset of this))
   void mergeEdges(DependencyGraphElementImpl *Target){
-    set<string> Vars;
-    getVars(Vars);
-    for (string Var : Vars){
-      if (Target->isPresent(Var)){
-        for (Node *Tail : Target->VarToNode[Var]->HeadOf){
-          this->VarToNode[Var]->HeadOf.insert(Tail);
-        }
-        for (Node *Head : Target->VarToNode[Var]->TailOf){
-          this->VarToNode[Var]->TailOf.insert(Head);
-        }
-      }
+    set<pair<string, string>> Edges;
+    Target->getEdges(Edges);
+    for (pair<string, string> Edge : Edges){
+      addEdge(Edge.first, Edge.second);
     }
   }
 
@@ -207,6 +170,61 @@ private:
 
   map<string, Node*> VarToNode;
 
+  void addNode(string S){
+    VarToNode[S] = new Node();
+    VarToNode[S]->Name = S;
+  }
+
+  void addEdge(string S1, string S2){
+    if (VarToNode.find(S1) == VarToNode.end() ||
+        VarToNode.find(S2) == VarToNode.end())
+      return;
+    VarToNode[S1]->TailOf.insert(VarToNode[S2]);
+    VarToNode[S2]->HeadOf.insert(VarToNode[S1]);
+  }
+
+  void deleteNode(string S){
+    if (VarToNode.find(S) == VarToNode.end())
+      return;
+    set<pair<string,string>> Edges;
+    getEdges(S, Edges);
+    for (pair<string, string> E : Edges){
+      deleteEdge(E.first, E.second);
+    }
+    delete(VarToNode[S]);
+    VarToNode.erase(S);
+  }
+
+  void deleteEdge(string S1, string S2){
+    if (VarToNode.find(S1) == VarToNode.end() ||
+        VarToNode.find(S2) == VarToNode.end())
+      return;
+    if (VarToNode[S1]->TailOf.find(VarToNode[S2]) == VarToNode[S1]->TailOf.end() ||
+        VarToNode[S2]->HeadOf.find(VarToNode[S1]) == VarToNode[S2]->HeadOf.end())
+      return;
+    VarToNode[S1]->TailOf.erase(VarToNode[S2]);
+    VarToNode[S2]->HeadOf.erase(VarToNode[S1]);
+  }
+
+  void getEdges(set<pair<string,string>> &S){
+    for (pair<string, Node*> P : VarToNode){
+      for (Node *N : P.second->TailOf){
+        S.insert(pair<string, string>(P.second->Name, N->Name));
+      }
+    }
+  }
+
+  void getEdges(string U, set<pair<string,string>> &S){
+    if (VarToNode.find(U) == VarToNode.end())
+      return;
+    for (Node *N : VarToNode[U]->TailOf){
+      S.insert(pair<string,string>(U, N->Name));
+    }
+    for (Node *N : VarToNode[U]->HeadOf){
+      S.insert(pair<string,string>(N->Name, U));
+    }
+  }
+
 };
 
 
@@ -235,17 +253,17 @@ public:
   }
 
   // Inserts variables in the graph with dependencies
-  void insert(const string Var, const set<string> Rhs){
+  void insert(const string Var, const set<string> &Rhs){
     GraphStack.top()->insert(Var, Rhs);
   }
 
   // Finds reachable variables in the graph
-  const set<string> reachable(const string Var){
-    return GraphStack.top()->reachable(Var);
+  void reachable(const string Var, set<string> &Visited){
+    GraphStack.top()->reachable(Var, Visited);
   }
 
   // Ignores unwanted variables in the graph
-  void ignore(const set<string> UnwantedVars){
+  void ignore(const set<string> &UnwantedVars){
     GraphStack.top()->ignore(UnwantedVars);
   }
 
@@ -264,8 +282,8 @@ public:
 
   // Entering a branch
   void entryBranch(){
-    DependencyGraphElementImpl Top = *GraphStack.top();
-    GraphStack.push(new DependencyGraphElementImpl(Top));
+    DependencyGraphElementImpl *DGE = new DependencyGraphElementImpl(*GraphStack.top());
+    GraphStack.push(DGE);
   };
 
   // Exiting a branch (Maybe not needed)
@@ -281,18 +299,20 @@ public:
       DependencyGraphElementImpl *Target = MergeStack.top();
       MergeStack.pop();
 
+      // Get rid of variables in target but not in Curr
       set<string> Diff;
-      diffGraphs(Curr, Target, Diff);
+      diffGraphs(Target, Curr, Diff);
+      Target->ignore(Diff);
 
-      // FIXME Ignore step might not be needed...
-      Curr->ignore(Diff);
-
-      // Merge edges
+      // Merge edges has precondition that target <= curr
       Curr->mergeEdges(Target);
 
       // Invalidate 
-      for (string D : Diff){
-        set<string> Reach = Curr->reachable(D);
+      set<string> Diff2;
+      diffGraphs(Curr, Target, Diff2);
+      for (string D : Diff2){
+        set<string> Reach;
+        Curr->reachable(D, Reach);
         for (string U : Reach){
           Curr->remove(U);
         }
@@ -350,17 +370,17 @@ void DependencyGraph::exitBranch(){ Pimpl->exitBranch(); }
 void DependencyGraph::remove(const string Var){ Pimpl->remove(Var); }
 
 // Inserts variables in the graph with dependencies
-void DependencyGraph::insert(const string Var, const set<string> Rhs){
+void DependencyGraph::insert(const string Var, const set<string> &Rhs){
   Pimpl->insert(Var, Rhs);
 }
 
 // Finds reachable variables in the graph
-const set<string> DependencyGraph::reachable(const string Var){
-  return Pimpl->reachable(Var);
+void DependencyGraph::reachable(const string Var, set<string> &Visited){
+  Pimpl->reachable(Var, Visited);
 }
 
 // Ignores unwanted variables in the graph
-void DependencyGraph::ignore(const set<string> UnwantedVars){
+void DependencyGraph::ignore(const set<string> &UnwantedVars){
   Pimpl->ignore(UnwantedVars);
 }
 

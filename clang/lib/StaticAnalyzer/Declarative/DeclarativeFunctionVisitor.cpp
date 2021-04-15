@@ -42,39 +42,53 @@ public:
     return true;
   }
 
+  bool VisitCompoundAssignOperator(CompoundAssignOperator *Operator){
+    // Operator->dump();
+    return true;
+  }
+
   bool VisitVarDecl(VarDecl *Declaration){
     CollectDeclRefExprVisitor Collector;
-    set<string> Us;
+    set<string> Empty = set<string>();
+    set<string> *Us = &Empty;
     if (Declaration->getInit() != nullptr){
       Collector.TraverseStmt(Declaration->getInit());
       Us = Collector.getVariable();
-    } else {
-      Us = set<string>();
+    }
+    for (string U : *Us){
+      Empty.insert(U);
+    }
+    for (string U : Empty){
+      if (Graph->isAbsent(U)){
+        Us->erase(U);
+      }
     }
 
-    Graph->insert(Declaration->getNameAsString(), Us);
+    Graph->insert(Declaration->getNameAsString(), *Us);
     return true;
   }
 
   bool VisitBinaryOperator(BinaryOperator *Operator){
 
     if (Operator->isAssignmentOp()){
+      if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS())){
+        if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
+          CollectDeclRefExprVisitor Collector;
 
-      DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS());
-      if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
-        CollectDeclRefExprVisitor Collector;
+          Collector.TraverseStmt(Operator->getRHS());
+          set<string> *Us = Collector.getVariable();
 
-        Collector.TraverseStmt(Operator->getRHS());
-        set<string> Us = Collector.getVariable();
+          string LhsName = VD->getNameAsString();
 
-        string LhsName = VD->getNameAsString();
+          set<string> Reach;
+          Graph->reachable(LhsName, Reach);
+          for (string reachable : Reach){
+            Graph->remove(reachable);
+          }
 
-        for (string reachable : Graph->reachable(LhsName)){
-          Graph->remove(reachable);
+          Graph->insert(LhsName, *Us);
+
         }
-
-        Graph->insert(LhsName, Us);
-
       }
     }
     return true;
@@ -95,6 +109,7 @@ public:
   }
 
   bool TraverseIfStmt(IfStmt *If){
+    If->dump();
     Stmt *Then = If->getThen();
     Stmt *Else = If->getElse();
 
@@ -116,15 +131,15 @@ public:
   }
 
   bool TraverseWhileStmt(WhileStmt *While){
-    Stmt *Body = While->getBody();
+    // Stmt *Body = While->getBody();
 
-    Graph->entryScope();
+    // Graph->entryScope();
 
-    Graph->entryBranch();
-    this->TraverseStmt(Body);
-    Graph->exitBranch();
+    // Graph->entryBranch();
+    // this->TraverseStmt(Body);
+    // Graph->exitBranch();
 
-    Graph->exitScope();
+    // Graph->exitScope();
 
     return true;
   }
@@ -147,6 +162,9 @@ DeclarativeFunctionVisitor::~DeclarativeFunctionVisitor(){
 }
 bool DeclarativeFunctionVisitor::VisitFunctionDecl(FunctionDecl *Declaration){
   return Pimpl->VisitFunctionDecl(Declaration);
+}
+bool DeclarativeFunctionVisitor::VisitCompoundAssignOperator(CompoundAssignOperator *Operator){
+  return Pimpl->VisitCompoundAssignOperator(Operator);
 }
 bool DeclarativeFunctionVisitor::VisitVarDecl(VarDecl *Declaration){
   return Pimpl->VisitVarDecl(Declaration);

@@ -60,9 +60,11 @@ void DeclarativeChecker::checkASTDecl(const FunctionDecl *D,
                                       BugReporter &BR) const {
 
   if (D->hasBody()){
-    visitor::DeclarativeFunctionVisitor DFV(Mgr.getASTContext());
-    DFV.TraverseDecl((Decl*) D);
-    set<string> *Bugs =  DFV.getBugs();
+    D->dump();
+    unique_ptr<visitor::DeclarativeFunctionVisitor> DFV(
+        new visitor::DeclarativeFunctionVisitor(Mgr.getASTContext()));
+    DFV->TraverseDecl((Decl*) D);
+    set<string> *Bugs =  DFV->getBugs();
     for (string Bug : *Bugs){
       this->ReportBug(D, Bug, BR, Mgr);
     }

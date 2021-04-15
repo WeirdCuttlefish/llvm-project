@@ -28,6 +28,7 @@ public:
   ~DeclarativeFunctionVisitor();
 
   bool VisitFunctionDecl(FunctionDecl *Declaration);
+  bool VisitCompoundAssignOperator(CompoundAssignOperator *Declaration);
   bool VisitVarDecl(VarDecl *Declaration);
   bool VisitBinaryOperator(BinaryOperator *Operator);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
