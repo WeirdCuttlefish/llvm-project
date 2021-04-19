@@ -78,6 +78,11 @@ public:
     }
   }
 
+  // Inserts edge in the graph with dependencies
+  void insertEdge(const string Var, const string U){
+    addEdge(Var, U);
+  }
+
   // Finds reachable variables in the graph
   void reachable(const string Var, set<string> &Visited){
     stack<Node*> Stack;
@@ -260,6 +265,11 @@ public:
     GraphStack.top()->insert(Var, Rhs);
   }
 
+  // Inserts edge in the graph with dependencies
+  void insertEdge(const string Var, const string U){
+    GraphStack.top()->insertEdge(Var, U);
+  }
+
   // Finds reachable variables in the graph
   void reachable(const string Var, set<string> &Visited){
     GraphStack.top()->reachable(Var, Visited);
@@ -392,6 +402,11 @@ string DependencyGraph::getRemovalReason(const string Var){
 // Inserts variables in the graph with dependencies
 void DependencyGraph::insert(const string Var, const set<string> &Rhs){
   Pimpl->insert(Var, Rhs);
+}
+
+// Inserts edge in the graph with dependencies
+void DependencyGraph::insertEdge(const string Var, const string U){
+  Pimpl->insertEdge(Var, U);
 }
 
 // Finds reachable variables in the graph

@@ -44,6 +44,9 @@ public:
   // Inserts variables in the graph with dependencies
   void insert(const string Var, const set<string> &Rhs);
 
+  // Inserts edge in the graph with dependencies
+  void insertEdge(const string Var, const string U);
+
   // Finds reachable variables in the graph
   void reachable(const string Var, set<string> &Visited);
 

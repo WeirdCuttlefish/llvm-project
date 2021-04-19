@@ -28,12 +28,12 @@ public:
   ~DeclarativeFunctionVisitor();
 
   bool VisitFunctionDecl(FunctionDecl *Declaration);
-  bool VisitCompoundAssignOperator(CompoundAssignOperator *Declaration);
-  bool VisitVarDecl(VarDecl *Declaration);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
   bool TraverseBinaryOperator(BinaryOperator *Operator);
+  bool TraverseCompoundAssignOperator(CompoundAssignOperator *Declaration);
   bool TraverseIfStmt(IfStmt *If);
   bool TraverseForStmt(ForStmt *For);
+  bool TraverseVarDecl(VarDecl *Declaration);
   bool TraverseWhileStmt(WhileStmt *While);
 
   set<pair<string, Decl*>>* getBugs();

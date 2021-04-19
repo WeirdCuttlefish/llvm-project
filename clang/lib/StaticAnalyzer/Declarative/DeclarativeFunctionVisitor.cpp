@@ -55,12 +55,43 @@ public:
     return true;
   }
 
-  bool VisitCompoundAssignOperator(CompoundAssignOperator *Operator){
-    // Operator->dump();
+  bool TraverseCompoundAssignOperator(CompoundAssignOperator *Operator){
+    TraverseStmt(Operator->getRHS());
+    TraverseStmt(Operator->getLHS());
+
+    if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS())){
+      if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
+        if (!VD->getType()->isPointerType()){
+          CollectDeclRefExprVisitor Collector;
+
+          Collector.TraverseStmt(Operator->getRHS());
+          set<string> *Us = Collector.getVariable();
+
+          string LhsName = VD->getNameAsString();
+
+          if (Graph->isPresent(LhsName)){
+            set<string> Reach;
+            Graph->reachable(LhsName, Reach);
+            for (string r : Reach){
+              if (Graph->isPresent(r) && r != LhsName){
+                Graph->remove(r, LhsName);
+              }
+            }
+          }
+
+          for (string U : *Us){
+            Graph->insertEdge(LhsName, U);
+          }
+        }
+      }
+    }
     return true;
   }
 
-  bool VisitVarDecl(VarDecl *Declaration){
+  bool TraverseVarDecl(VarDecl *Declaration){
+    if (Declaration->getInit() != nullptr){
+      TraverseStmt(Declaration->getInit());
+    }
     if (!Declaration->getType()->isPointerType()){
       CollectDeclRefExprVisitor Collector;
       set<string> Empty = set<string>();
@@ -192,11 +223,11 @@ DeclarativeFunctionVisitor::~DeclarativeFunctionVisitor(){
 bool DeclarativeFunctionVisitor::VisitFunctionDecl(FunctionDecl *Declaration){
   return Pimpl->VisitFunctionDecl(Declaration);
 }
-bool DeclarativeFunctionVisitor::VisitCompoundAssignOperator(CompoundAssignOperator *Operator){
-  return Pimpl->VisitCompoundAssignOperator(Operator);
+bool DeclarativeFunctionVisitor::TraverseCompoundAssignOperator(CompoundAssignOperator *Operator){
+  return Pimpl->TraverseCompoundAssignOperator(Operator);
 }
-bool DeclarativeFunctionVisitor::VisitVarDecl(VarDecl *Declaration){
-  return Pimpl->VisitVarDecl(Declaration);
+bool DeclarativeFunctionVisitor::TraverseVarDecl(VarDecl *Declaration){
+  return Pimpl->TraverseVarDecl(Declaration);
 }
 bool DeclarativeFunctionVisitor::TraverseBinaryOperator(BinaryOperator *Operator){
   return Pimpl->TraverseBinaryOperator(Operator);
