@@ -59,6 +59,12 @@ public:
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable);
 
+  // Get state of variable at vardecl
+  string getState(const string Variable);
+
+  // Set state of variable at vardecl
+  void setState(const string Variable);
+
   // Get reason of removal for variable
   string getRemovalReason(const string Var);
 

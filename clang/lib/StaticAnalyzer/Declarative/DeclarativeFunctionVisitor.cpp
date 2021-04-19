@@ -82,6 +82,7 @@ public:
           for (string U : *Us){
             Graph->insertEdge(LhsName, U);
           }
+          Graph->setState(LhsName);
         }
       }
     }
@@ -110,6 +111,7 @@ public:
       }
 
       Graph->insert(Declaration->getNameAsString(), *Us);
+      Graph->setState(Declaration->getNameAsString());
     }
     return true;
   }
@@ -138,6 +140,7 @@ public:
               }
             }
             Graph->insert(LhsName, *Us);
+            Graph->setState(LhsName);
           }
         }
       }
@@ -152,11 +155,11 @@ public:
         if (Graph->isAbsent(Name)){
           BugReports->insert(
               pair<string, Decl*>(
-                Name + " is no longer valid " + "due to change in " +
-                (!Graph->getRemovalReason(Name).empty() ? Graph->getRemovalReason(Name) : "UNKNOWN")
+                Name + " is no longer valid.\n" + 
+                (!Graph->getRemovalReason(Name).empty() ? Graph->getRemovalReason(Name) : "UNKNOWN\n")
+                + "The dependency graph at the time of use was:\n" + Graph->toString() + "\n"
                 + " in " + 
-                Declaration->getLocation().printToString(
-                Context.getSourceManager()),
+                Declaration->getLocation().printToString(Context.getSourceManager()),
                 VD
               )
           );

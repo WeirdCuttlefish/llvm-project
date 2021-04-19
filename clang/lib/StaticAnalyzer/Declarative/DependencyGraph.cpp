@@ -12,10 +12,6 @@
 #include <string>
 
 
-struct Hello{
-  set<string> S;
-};
-
 using namespace std;
 
 using namespace declarative;
@@ -35,6 +31,7 @@ public:
     for (pair<string, Node*> P : GraphIn.VarToNode){
       VarToNode[P.first] = new Node();
       VarToNode[P.first]->Name = P.first;
+      VarToNode[P.first]->State = P.second->State;
     }
     for (pair<string, Node*> P : GraphIn.VarToNode){
       for (Node* N : P.second->TailOf){
@@ -66,8 +63,9 @@ public:
 
   // Removes variables from the graph
   void remove(const string Var, const string Reason, map<string, string> &InvalidationMap){
+    InvalidationMap[Var] = Var + " was deleted due to change in " + Reason + ".\n" +
+      "The dependency graph at the time of declaration was:\n" + VarToNode[Var]->State + "\n";
     deleteNode(Var);
-    InvalidationMap[Var] = Reason;
   }
 
   // Inserts variables in the graph with dependencies
@@ -144,10 +142,26 @@ public:
     }
   }
 
+  // Get State of var
+  string getState(const string Var){
+    if (isPresent(Var))
+      return VarToNode[Var]->State;
+    return "NOT A NODE";
+  }
+
+  // Set State of var
+  void setState(const string Var){
+    if (isPresent(Var)){
+      VarToNode[Var]->State = toString();
+    }
+  }
+
 private:
 
   struct Node {
+
     string Name;
+    string State = "";
     set<Node*> TailOf;
     set<Node*> HeadOf;
 
@@ -257,7 +271,6 @@ public:
   // FIXME Hack: Second argument tells reason
   void remove(const string Var, const string Reason){
     GraphStack.top()->remove(Var, Reason, InvalidationMap);
-    InvalidationMap[Var] = Reason;
   }
 
   // Inserts variables in the graph with dependencies
@@ -345,6 +358,16 @@ public:
     return "";
   };
 
+  // Get State of var
+  string getState(const string Var){
+    return GraphStack.top()->getState(Var);
+  }
+
+  // Set state of var
+  void setState(const string Var){
+    GraphStack.top()->setState(Var);
+  }
+
 
 private:
   stack<DependencyGraphElementImpl*> GraphStack;
@@ -399,6 +422,11 @@ string DependencyGraph::getRemovalReason(const string Var){
   return Pimpl->getRemovalReason(Var); 
 }
 
+// Gets the reason for removal of variable
+string DependencyGraph::getState(const string Var){ 
+  return Pimpl->getState(Var); 
+}
+
 // Inserts variables in the graph with dependencies
 void DependencyGraph::insert(const string Var, const set<string> &Rhs){
   Pimpl->insert(Var, Rhs);
@@ -427,4 +455,9 @@ bool DependencyGraph::isPresent(const string Variable){
 // Figure out if the variable is absent in the graph
 bool DependencyGraph::isAbsent(const string Variable){
   return Pimpl->isAbsent(Variable);
+}
+
+// set state
+void DependencyGraph::setState(const string Variable){
+  return Pimpl->setState(Variable);
 }
