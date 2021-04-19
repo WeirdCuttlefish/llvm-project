@@ -31,6 +31,7 @@ public:
     {};
   ~DeclarativeFunctionVisitorImpl(){
     delete(Graph);
+    delete(BugReports);
   };
 
   bool VisitFunctionDecl(FunctionDecl *Declaration){
@@ -42,53 +43,71 @@ public:
     return true;
   }
 
+  bool TraverseForStmt(ForStmt *For){
+    Graph->entryScope();
+
+    Graph->entryBranch();
+    TraverseStmt(For->getInit());
+    TraverseStmt(For->getBody());
+    Graph->exitBranch();
+
+    Graph->exitScope();
+    return true;
+  }
+
   bool VisitCompoundAssignOperator(CompoundAssignOperator *Operator){
     // Operator->dump();
     return true;
   }
 
   bool VisitVarDecl(VarDecl *Declaration){
-    CollectDeclRefExprVisitor Collector;
-    set<string> Empty = set<string>();
-    set<string> *Us = &Empty;
-    if (Declaration->getInit() != nullptr){
-      Collector.TraverseStmt(Declaration->getInit());
-      Us = Collector.getVariable();
-    }
-    for (string U : *Us){
-      Empty.insert(U);
-    }
-    for (string U : Empty){
-      if (Graph->isAbsent(U)){
-        Us->erase(U);
+    if (!Declaration->getType()->isPointerType()){
+      CollectDeclRefExprVisitor Collector;
+      set<string> Empty = set<string>();
+      set<string> *Us = &Empty;
+      if (Declaration->getInit() != nullptr){
+        Collector.TraverseStmt(Declaration->getInit());
+        Us = Collector.getVariable();
       }
-    }
+      for (string U : *Us){
+        Empty.insert(U);
+      }
+      for (string U : Empty){
+        if (Graph->isAbsent(U)){
+          Us->erase(U);
+        }
+      }
 
-    Graph->insert(Declaration->getNameAsString(), *Us);
+      Graph->insert(Declaration->getNameAsString(), *Us);
+    }
     return true;
   }
 
-  bool VisitBinaryOperator(BinaryOperator *Operator){
+  bool TraverseBinaryOperator(BinaryOperator *Operator){
+    TraverseStmt(Operator->getRHS());
 
     if (Operator->isAssignmentOp()){
       if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS())){
         if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
-          CollectDeclRefExprVisitor Collector;
+          if (!VD->getType()->isPointerType()){
+            CollectDeclRefExprVisitor Collector;
 
-          Collector.TraverseStmt(Operator->getRHS());
-          set<string> *Us = Collector.getVariable();
+            Collector.TraverseStmt(Operator->getRHS());
+            set<string> *Us = Collector.getVariable();
 
-          string LhsName = VD->getNameAsString();
+            string LhsName = VD->getNameAsString();
 
-          if (Graph->isPresent(LhsName)){
-            set<string> Reach;
-            Graph->reachable(LhsName, Reach);
-            for (string r : Reach){
-              if (Graph->isPresent(r))
-                Graph->remove(r);
+            if (Graph->isPresent(LhsName)){
+              set<string> Reach;
+              Graph->reachable(LhsName, Reach);
+              for (string r : Reach){
+                if (Graph->isPresent(r)){
+                  Graph->remove(r, LhsName);
+                }
+              }
             }
+            Graph->insert(LhsName, *Us);
           }
-          Graph->insert(LhsName, *Us);
         }
       }
     }
@@ -97,15 +116,17 @@ public:
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration){
     if (VarDecl* VD = dyn_cast<VarDecl>(Declaration->getDecl())){
-      if (VD->isLocalVarDeclOrParm()){
+      if (VD->isLocalVarDeclOrParm() && !VD->getType()->isPointerType()){
         string Name = VD->getNameAsString();
         if (Graph->isAbsent(Name)){
           BugReports->insert(
               pair<string, Decl*>(
-                Name + " is no longer valid in " + 
+                Name + " is no longer valid " + "due to change in " +
+                (!Graph->getRemovalReason(Name).empty() ? Graph->getRemovalReason(Name) : "UNKNOWN")
+                + " in " + 
                 Declaration->getLocation().printToString(
                 Context.getSourceManager()),
-                dyn_cast<Decl>(Declaration)
+                VD
               )
           );
         }
@@ -115,17 +136,20 @@ public:
   }
 
   bool TraverseIfStmt(IfStmt *If){
+    Stmt *Cond = If->getCond();
     Stmt *Then = If->getThen();
     Stmt *Else = If->getElse();
 
     Graph->entryScope();
     
     Graph->entryBranch();
+    this->TraverseStmt(Cond);
     this->TraverseStmt(Then);
     Graph->exitBranch();
 
     if (Else != NULL){
       Graph->entryBranch();
+      this->TraverseStmt(Cond);
       this->TraverseStmt(Else);
       Graph->exitBranch();
     }
@@ -174,14 +198,17 @@ bool DeclarativeFunctionVisitor::VisitCompoundAssignOperator(CompoundAssignOpera
 bool DeclarativeFunctionVisitor::VisitVarDecl(VarDecl *Declaration){
   return Pimpl->VisitVarDecl(Declaration);
 }
-bool DeclarativeFunctionVisitor::VisitBinaryOperator(BinaryOperator *Operator){
-  return Pimpl->VisitBinaryOperator(Operator);
+bool DeclarativeFunctionVisitor::TraverseBinaryOperator(BinaryOperator *Operator){
+  return Pimpl->TraverseBinaryOperator(Operator);
 }
 bool DeclarativeFunctionVisitor::VisitDeclRefExpr(DeclRefExpr *Declaration){
   return Pimpl->VisitDeclRefExpr(Declaration);
 }
 bool DeclarativeFunctionVisitor::TraverseIfStmt(IfStmt *If){
   return Pimpl->TraverseIfStmt(If);
+}
+bool DeclarativeFunctionVisitor::TraverseForStmt(ForStmt *For){
+  return Pimpl->TraverseForStmt(For);
 }
 bool DeclarativeFunctionVisitor::TraverseWhileStmt(WhileStmt *While){
   return Pimpl->TraverseWhileStmt(While);

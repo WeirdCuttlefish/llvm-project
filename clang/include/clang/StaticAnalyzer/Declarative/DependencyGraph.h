@@ -38,7 +38,8 @@ public:
   void exitScope();
 
   // Removes variables from the graph
-  void remove(const string Var);
+  // FIXME: Hack is to keep the reason with the string.
+  void remove(const string Var, const string Reason);
 
   // Inserts variables in the graph with dependencies
   void insert(const string Var, const set<string> &Rhs);
@@ -54,6 +55,9 @@ public:
 
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable);
+
+  // Get reason of removal for variable
+  string getRemovalReason(const string Var);
 
 private:
 

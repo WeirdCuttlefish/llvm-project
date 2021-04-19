@@ -30,9 +30,10 @@ public:
   bool VisitFunctionDecl(FunctionDecl *Declaration);
   bool VisitCompoundAssignOperator(CompoundAssignOperator *Declaration);
   bool VisitVarDecl(VarDecl *Declaration);
-  bool VisitBinaryOperator(BinaryOperator *Operator);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
+  bool TraverseBinaryOperator(BinaryOperator *Operator);
   bool TraverseIfStmt(IfStmt *If);
+  bool TraverseForStmt(ForStmt *For);
   bool TraverseWhileStmt(WhileStmt *While);
 
   set<pair<string, Decl*>>* getBugs();

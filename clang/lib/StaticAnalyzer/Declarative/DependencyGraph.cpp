@@ -65,8 +65,9 @@ public:
   }
 
   // Removes variables from the graph
-  void remove(const string Var){
+  void remove(const string Var, const string Reason, map<string, string> &InvalidationMap){
     deleteNode(Var);
+    InvalidationMap[Var] = Reason;
   }
 
   // Inserts variables in the graph with dependencies
@@ -248,8 +249,10 @@ public:
   }
 
   // Removes variables from the graph
-  void remove(const string Var){
-    GraphStack.top()->remove(Var);
+  // FIXME Hack: Second argument tells reason
+  void remove(const string Var, const string Reason){
+    GraphStack.top()->remove(Var, Reason, InvalidationMap);
+    InvalidationMap[Var] = Reason;
   }
 
   // Inserts variables in the graph with dependencies
@@ -315,7 +318,7 @@ public:
           set<string> Reach;
           Curr->reachable(D, Reach);
           for (string U : Reach){
-            Curr->remove(U);
+            Curr->remove(U, D, InvalidationMap);
           }
         }
       }
@@ -324,10 +327,19 @@ public:
     }
   };
 
+  // Get reason of removal of function
+  string getRemovalReason(const string Var){
+    if (InvalidationMap.find(Var) != InvalidationMap.end()){
+      return InvalidationMap[Var];
+    }
+    return "";
+  };
+
 
 private:
   stack<DependencyGraphElementImpl*> GraphStack;
   stack<DependencyGraphElementImpl*> MergeStack;
+  map<string, string> InvalidationMap;
 
   void diffGraphs(DependencyGraphElementImpl *E1, 
                          DependencyGraphElementImpl *E2,
@@ -340,7 +352,6 @@ private:
       }
     }
   }
-
 
 };
 
@@ -369,7 +380,14 @@ void DependencyGraph::entryBranch(){ Pimpl->entryBranch(); }
 void DependencyGraph::exitBranch(){ Pimpl->exitBranch(); }
 
 // Removes variables from the graph
-void DependencyGraph::remove(const string Var){ Pimpl->remove(Var); }
+void DependencyGraph::remove(const string Var, const string Reason){ 
+  Pimpl->remove(Var, Reason); 
+}
+
+// Gets the reason for removal of variable
+string DependencyGraph::getRemovalReason(const string Var){ 
+  return Pimpl->getRemovalReason(Var); 
+}
 
 // Inserts variables in the graph with dependencies
 void DependencyGraph::insert(const string Var, const set<string> &Rhs){
