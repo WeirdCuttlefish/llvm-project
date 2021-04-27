@@ -55,6 +55,33 @@ public:
     return true;
   }
 
+  bool TraverseUnaryOperator(UnaryOperator *Operator){
+    TraverseStmt(Operator->getSubExpr());
+
+    if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getSubExpr())){
+      if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
+        if (!VD->getType()->isPointerType()){
+          CollectDeclRefExprVisitor Collector;
+
+          string LhsName = VD->getNameAsString();
+
+          if (Graph->isPresent(LhsName)){
+            set<string> Reach;
+            Graph->reachable(LhsName, Reach);
+            for (string r : Reach){
+              if (Graph->isPresent(r) && r != LhsName){
+                Graph->remove(r, LhsName);
+              }
+            }
+          }
+
+          Graph->setState(LhsName);
+        }
+      }
+    }
+    return true;
+  }
+
   bool TraverseCompoundAssignOperator(CompoundAssignOperator *Operator){
     TraverseStmt(Operator->getRHS());
     TraverseStmt(Operator->getLHS());
@@ -80,7 +107,7 @@ public:
           }
 
           for (string U : *Us){
-            Graph->insertEdge(LhsName, U);
+            Graph->insertEdge(U, LhsName);
           }
           Graph->setState(LhsName);
         }
@@ -144,6 +171,8 @@ public:
           }
         }
       }
+    } else {
+      RecursiveASTVisitor::TraverseBinaryOperator(Operator);
     }
     return true;
   }
@@ -228,6 +257,9 @@ bool DeclarativeFunctionVisitor::VisitFunctionDecl(FunctionDecl *Declaration){
 }
 bool DeclarativeFunctionVisitor::TraverseCompoundAssignOperator(CompoundAssignOperator *Operator){
   return Pimpl->TraverseCompoundAssignOperator(Operator);
+}
+bool DeclarativeFunctionVisitor::TraverseUnaryOperator(UnaryOperator *Operator){
+  return Pimpl->TraverseUnaryOperator(Operator);
 }
 bool DeclarativeFunctionVisitor::TraverseVarDecl(VarDecl *Declaration){
   return Pimpl->TraverseVarDecl(Declaration);

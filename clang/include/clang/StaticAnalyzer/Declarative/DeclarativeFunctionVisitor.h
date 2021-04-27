@@ -31,6 +31,7 @@ public:
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
   bool TraverseBinaryOperator(BinaryOperator *Operator);
   bool TraverseCompoundAssignOperator(CompoundAssignOperator *Declaration);
+  bool TraverseUnaryOperator(UnaryOperator *Declaration);
   bool TraverseIfStmt(IfStmt *If);
   bool TraverseForStmt(ForStmt *For);
   bool TraverseVarDecl(VarDecl *Declaration);
