@@ -1,5 +1,19 @@
 # Declarative Checker
 
+### Summary
+
+This project is to check for declarative bugs. Specifically we want to catch instances where variable declarations are no longer being held upon use.
+For example...
+```
+int a = 0;
+int b = 1;
+int x = a + b;
+a = 3;
+x;          \\ Error cause x = 1 but a + b = 4
+```
+
+Formally we can think of declarations being thunks, (ie. `x = (f () -> a + b)`). Upon use of `x`, we want to make sure that `x` takes on the value of `f ()`.
+
 ### Build instructions
 Run the following command from the llvm-project directory. Takes about an hour to build.
 ```
