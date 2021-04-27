@@ -43,6 +43,19 @@ public:
     return true;
   }
 
+  bool TraverseLambdaExpr(LambdaExpr *Lambda){
+    CXXMethodDecl *LambdaDecl = Lambda->getCallOperator();
+    Graph->entryScopeNonDestructive();
+    set<string> EmptySet;
+    for (ParmVarDecl *Param : LambdaDecl->parameters()){
+      string ParamName = Param->getNameAsString();
+      Graph->insert(ParamName, EmptySet);
+    }
+    TraverseStmt(Lambda->getBody());
+    Graph->exitScopeNonDestructive();
+    return true;
+  }
+
   bool TraverseForStmt(ForStmt *For){
     Graph->entryScope();
 
@@ -260,6 +273,9 @@ bool DeclarativeFunctionVisitor::TraverseCompoundAssignOperator(CompoundAssignOp
 }
 bool DeclarativeFunctionVisitor::TraverseUnaryOperator(UnaryOperator *Operator){
   return Pimpl->TraverseUnaryOperator(Operator);
+}
+bool DeclarativeFunctionVisitor::TraverseLambdaExpr(LambdaExpr *Lambda){
+  return Pimpl->TraverseLambdaExpr(Lambda);
 }
 bool DeclarativeFunctionVisitor::TraverseVarDecl(VarDecl *Declaration){
   return Pimpl->TraverseVarDecl(Declaration);

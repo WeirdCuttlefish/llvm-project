@@ -368,6 +368,17 @@ public:
     GraphStack.top()->setState(Var);
   }
 
+  // Entering a lambda statement
+  void entryScopeNonDestructive(){
+    DependencyGraphElementImpl *DGE = new DependencyGraphElementImpl(*GraphStack.top());
+    GraphStack.push(DGE);
+  };
+
+  // Leaving a lambda statement
+  void exitScopeNonDestructive(){
+    GraphStack.pop();
+  };
+
 
 private:
   stack<DependencyGraphElementImpl*> GraphStack;
@@ -411,6 +422,12 @@ void DependencyGraph::entryBranch(){ Pimpl->entryBranch(); }
 
 // Exit branch
 void DependencyGraph::exitBranch(){ Pimpl->exitBranch(); }
+
+// Enter scope for Lambda
+void DependencyGraph::entryScopeNonDestructive(){ Pimpl->entryScopeNonDestructive(); }
+
+// Exit scope for Lambda
+void DependencyGraph::exitScopeNonDestructive(){ Pimpl->exitScopeNonDestructive(); }
 
 // Removes variables from the graph
 void DependencyGraph::remove(const string Var, const string Reason){ 

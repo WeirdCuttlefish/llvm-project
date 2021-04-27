@@ -27,13 +27,14 @@ public:
   DeclarativeFunctionVisitor(ASTContext &Context);
   ~DeclarativeFunctionVisitor();
 
-  bool VisitFunctionDecl(FunctionDecl *Declaration);
   bool VisitDeclRefExpr(DeclRefExpr *Declaration);
+  bool VisitFunctionDecl(FunctionDecl *Declaration);
   bool TraverseBinaryOperator(BinaryOperator *Operator);
   bool TraverseCompoundAssignOperator(CompoundAssignOperator *Declaration);
-  bool TraverseUnaryOperator(UnaryOperator *Declaration);
-  bool TraverseIfStmt(IfStmt *If);
   bool TraverseForStmt(ForStmt *For);
+  bool TraverseIfStmt(IfStmt *If);
+  bool TraverseLambdaExpr(LambdaExpr *Lambda);
+  bool TraverseUnaryOperator(UnaryOperator *Declaration);
   bool TraverseVarDecl(VarDecl *Declaration);
   bool TraverseWhileStmt(WhileStmt *While);
 

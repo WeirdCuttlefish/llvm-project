@@ -37,6 +37,12 @@ public:
   // Exiting an if statement
   void exitScope();
 
+  // Entering a lambda statement
+  void entryScopeNonDestructive();
+
+  // Leaving a lambda statement
+  void exitScopeNonDestructive();
+
   // Removes variables from the graph
   // FIXME: Hack is to keep the reason with the string.
   void remove(const string Var, const string Reason);
