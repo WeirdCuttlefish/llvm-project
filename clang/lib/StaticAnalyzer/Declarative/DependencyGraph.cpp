@@ -272,7 +272,7 @@ public:
   void remove(const string Var, const string Reason){
     string CVar = canonicalizeVar(Var);
     string CReason = canonicalizeVar(Reason);
-    GraphStack.top()->remove(CVar, CReason, InvalidationMap);
+    GraphStack.top()->remove(Var, Reason, InvalidationMap);
     removeVarVersion(Var);
   }
 
@@ -282,23 +282,23 @@ public:
     string CVar = canonicalizeVar(Var);
     set<string> CRhs;
     canonicalizeVar(Rhs, CRhs);
-    GraphStack.top()->insert(CVar, CRhs);
+    GraphStack.top()->insert(Var, Rhs);
   }
 
   // Inserts edge in the graph with dependencies
   void insertEdge(const string Var, const string U){
     string CVar = canonicalizeVar(Var);
     string CU = canonicalizeVar(U);
-    GraphStack.top()->insertEdge(CVar, CU);
+    GraphStack.top()->insertEdge(Var, U);
   }
 
   // Finds reachable variables in the graph
   void reachable(const string Var, set<string> &Visited){
     string CVar = canonicalizeVar(Var);
     set<string> Us;
-    GraphStack.top()->reachable(CVar, Us);
+    GraphStack.top()->reachable(Var, Us);
     for (string U : Us){
-      Visited.insert(uncanonicalizeVar(U));
+      Visited.insert(U);
     }
   }
 
@@ -308,21 +308,19 @@ public:
     for (string U : UnwantedVars){
       CUnwantedVars.insert(canonicalizeVar(U));
     }
-    GraphStack.top()->ignore(CUnwantedVars);
+    GraphStack.top()->ignore(UnwantedVars);
   }
 
   // Figure out if the variable is present in the graph
   bool isPresent(const string Variable){
     string CVar = canonicalizeVar(Variable);
-    llvm::outs() << "PRESENT " << CVar << "\n";
-    return GraphStack.top()->isPresent(CVar);
+    return GraphStack.top()->isPresent(Variable);
   }
 
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable){
     string CVar = canonicalizeVar(Variable);
-    llvm::outs() << "ABSENT " << CVar << "\n";
-    return GraphStack.top()->isAbsent(CVar);
+    return GraphStack.top()->isAbsent(Variable);
   }
 
   // Entering an if statement

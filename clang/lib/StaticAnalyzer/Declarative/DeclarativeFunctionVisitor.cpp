@@ -61,7 +61,6 @@ public:
 
     Graph->entryBranch();
     TraverseStmt(For->getInit());
-    llvm::outs() << Graph->toString();
     TraverseStmt(For->getBody());
     Graph->exitBranch();
 
@@ -175,7 +174,6 @@ public:
               set<string> Reach;
               Graph->reachable(LhsName, Reach);
               for (string r : Reach){
-                llvm::outs() << "REMOVING " << r << "\n";
                 if (Graph->isPresent(r)){
                   Graph->remove(r, LhsName);
                 }
@@ -189,7 +187,6 @@ public:
     } else {
       RecursiveASTVisitor::TraverseBinaryOperator(Operator);
     }
-    llvm::outs() << Graph->toString();
     return true;
   }
 
@@ -197,7 +194,6 @@ public:
     if (VarDecl* VD = dyn_cast<VarDecl>(Declaration->getDecl())){
       if (variableTypeConditions(VD)){
         string Name = VD->getNameAsString();
-        llvm::outs() << "DECL REF EXPR " << Name;
         if (Graph->isAbsent(Name)){
           BugReports->insert(
               pair<string, Decl*>(
