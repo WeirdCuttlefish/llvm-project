@@ -61,6 +61,7 @@ public:
 
     Graph->entryBranch();
     TraverseStmt(For->getInit());
+    llvm::outs() << Graph->toString();
     TraverseStmt(For->getBody());
     Graph->exitBranch();
 
@@ -73,7 +74,7 @@ public:
 
     if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getSubExpr())){
       if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
-        if (!VD->getType()->isPointerType()){
+        if (variableTypeConditions(VD)){
           CollectDeclRefExprVisitor Collector;
 
           string LhsName = VD->getNameAsString();
@@ -101,7 +102,7 @@ public:
 
     if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS())){
       if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
-        if (!VD->getType()->isPointerType()){
+        if (variableTypeConditions(VD)){
           CollectDeclRefExprVisitor Collector;
 
           Collector.TraverseStmt(Operator->getRHS());
@@ -133,7 +134,7 @@ public:
     if (Declaration->getInit() != nullptr){
       TraverseStmt(Declaration->getInit());
     }
-    if (!Declaration->getType()->isPointerType()){
+    if (variableTypeConditions(Declaration)){
       CollectDeclRefExprVisitor Collector;
       set<string> Empty = set<string>();
       set<string> *Us = &Empty;
@@ -162,7 +163,7 @@ public:
     if (Operator->isAssignmentOp()){
       if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Operator->getLHS())){
         if (clang::VarDecl* VD = dyn_cast<clang::VarDecl>(DRE->getDecl())){
-          if (!VD->getType()->isPointerType()){
+          if (variableTypeConditions(VD)){
             CollectDeclRefExprVisitor Collector;
 
             Collector.TraverseStmt(Operator->getRHS());
@@ -174,6 +175,7 @@ public:
               set<string> Reach;
               Graph->reachable(LhsName, Reach);
               for (string r : Reach){
+                llvm::outs() << "REMOVING " << r << "\n";
                 if (Graph->isPresent(r)){
                   Graph->remove(r, LhsName);
                 }
@@ -187,20 +189,22 @@ public:
     } else {
       RecursiveASTVisitor::TraverseBinaryOperator(Operator);
     }
+    llvm::outs() << Graph->toString();
     return true;
   }
 
   bool VisitDeclRefExpr(DeclRefExpr *Declaration){
     if (VarDecl* VD = dyn_cast<VarDecl>(Declaration->getDecl())){
-      if (VD->isLocalVarDeclOrParm() && !VD->getType()->isPointerType()){
+      if (variableTypeConditions(VD)){
         string Name = VD->getNameAsString();
+        llvm::outs() << "DECL REF EXPR " << Name;
         if (Graph->isAbsent(Name)){
           BugReports->insert(
               pair<string, Decl*>(
-                Name + " is no longer valid.\n" + 
+                Name + ":" + VD->getType().getAsString() + " is no longer valid.\n" + 
                 (!Graph->getRemovalReason(Name).empty() ? Graph->getRemovalReason(Name) : "UNKNOWN\n")
                 + "The dependency graph at the time of use was:\n" + Graph->toString() + "\n"
-                + " in " + 
+                + "This was in " + 
                 Declaration->getLocation().printToString(Context.getSourceManager()),
                 VD
               )
@@ -257,6 +261,15 @@ private:
  DependencyGraph *Graph;
  ASTContext &Context;
  set<pair<string, Decl*>> *BugReports = new set<pair<string,Decl*>>();
+
+ bool variableTypeConditions(VarDecl *VD){
+  const Type *T = VD->getType().getTypePtrOrNull();
+  if (!VD->isLocalVarDeclOrParm()) return false;
+  if (T->isPointerType()) return false;
+  if (T->isUndeducedAutoType()) return false;
+  if (T->isArrayType()) return false;
+  return true;
+ }
   
 }; 
 

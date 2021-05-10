@@ -270,37 +270,59 @@ public:
   // Removes variables from the graph
   // FIXME Hack: Second argument tells reason
   void remove(const string Var, const string Reason){
-    GraphStack.top()->remove(Var, Reason, InvalidationMap);
+    string CVar = canonicalizeVar(Var);
+    string CReason = canonicalizeVar(Reason);
+    GraphStack.top()->remove(CVar, CReason, InvalidationMap);
+    removeVarVersion(Var);
   }
 
   // Inserts variables in the graph with dependencies
   void insert(const string Var, const set<string> &Rhs){
-    GraphStack.top()->insert(Var, Rhs);
+    addVarVersion(Var);
+    string CVar = canonicalizeVar(Var);
+    set<string> CRhs;
+    canonicalizeVar(Rhs, CRhs);
+    GraphStack.top()->insert(CVar, CRhs);
   }
 
   // Inserts edge in the graph with dependencies
   void insertEdge(const string Var, const string U){
-    GraphStack.top()->insertEdge(Var, U);
+    string CVar = canonicalizeVar(Var);
+    string CU = canonicalizeVar(U);
+    GraphStack.top()->insertEdge(CVar, CU);
   }
 
   // Finds reachable variables in the graph
   void reachable(const string Var, set<string> &Visited){
-    GraphStack.top()->reachable(Var, Visited);
+    string CVar = canonicalizeVar(Var);
+    set<string> Us;
+    GraphStack.top()->reachable(CVar, Us);
+    for (string U : Us){
+      Visited.insert(uncanonicalizeVar(U));
+    }
   }
 
   // Ignores unwanted variables in the graph
   void ignore(const set<string> &UnwantedVars){
-    GraphStack.top()->ignore(UnwantedVars);
+    set<string> CUnwantedVars;
+    for (string U : UnwantedVars){
+      CUnwantedVars.insert(canonicalizeVar(U));
+    }
+    GraphStack.top()->ignore(CUnwantedVars);
   }
 
   // Figure out if the variable is present in the graph
   bool isPresent(const string Variable){
-    return GraphStack.top()->isPresent(Variable);
+    string CVar = canonicalizeVar(Variable);
+    llvm::outs() << "PRESENT " << CVar << "\n";
+    return GraphStack.top()->isPresent(CVar);
   }
 
   // Figure out if the variable is absent in the graph
   bool isAbsent(const string Variable){
-    return GraphStack.top()->isAbsent(Variable);
+    string CVar = canonicalizeVar(Variable);
+    llvm::outs() << "ABSENT " << CVar << "\n";
+    return GraphStack.top()->isAbsent(CVar);
   }
 
   // Entering an if statement
@@ -352,8 +374,9 @@ public:
 
   // Get reason of removal of function
   string getRemovalReason(const string Var){
-    if (InvalidationMap.find(Var) != InvalidationMap.end()){
-      return InvalidationMap[Var];
+    string CVar = canonicalizeVar(Var);
+    if (InvalidationMap.find(CVar) != InvalidationMap.end()){
+      return InvalidationMap[CVar];
     }
     return "";
   };
@@ -384,6 +407,49 @@ private:
   stack<DependencyGraphElementImpl*> GraphStack;
   stack<DependencyGraphElementImpl*> MergeStack;
   map<string, string> InvalidationMap;
+
+  map<string, int> VarToVersion;
+
+  void addVarVersion(string S){
+    if (VarToVersion.find(S) == VarToVersion.end()){
+      VarToVersion[S] = 0;
+    } else {
+      VarToVersion[S]++;
+    }
+  }
+
+  void removeVarVersion(string S){
+    if (VarToVersion.find(S) == VarToVersion.end()){
+      return;
+    } else if (VarToVersion[S] == 0) {
+      VarToVersion.erase(S);
+    } else {
+      VarToVersion[S]--;
+    }
+  }
+
+  string canonicalizeVar(string S){
+    return S + "___" + to_string(VarToVersion[S]);
+  }
+
+  void canonicalizeVar(const set<string> &Us, set<string> &Out){
+    for (string S : Us){
+      Out.insert(canonicalizeVar(S));
+    }
+  }
+
+  string uncanonicalizeVar(string S){
+    string version = "___" + to_string(VarToVersion[S.substr(0, S.find("___"))]);
+    const string ext(version);
+    if ( S != ext &&
+         S.size() > ext.size() &&
+         S.substr(S.size() - ext.size()) == version )
+    {
+       // if so then strip them off
+       S = S.substr(0, S.size() - ext.size());
+    }
+    return S;
+  }
 
   void diffGraphs(DependencyGraphElementImpl *E1, 
                          DependencyGraphElementImpl *E2,
