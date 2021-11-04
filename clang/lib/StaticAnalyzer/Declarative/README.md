@@ -32,9 +32,15 @@ You can probably find your own system libraries by running `clang++ test.cpp -v`
 
 
 ### How to execute
-We use the scan-build command to execute. It takes in the build command as input.
+#### Static Analysis
+Use the scan-build command. It takes in the build command as input.
 ```
-cd build
-./bin/scan-build ./bin/clang++ test.cpp
+./build/bin/scan-build ./build/bin/clang++ foo.cpp
 ```
-To run on cmake project, refer to this blog https://baptiste-wicht.com/posts/2014/04/install-use-clang-static-analyzer-cmake.html.
+#### Building
+This is faster but does not return as robust of messages.
+```
+./build/bin/clang++ foo.cpp
+```
+
+To run on cmake project, refer to this blog https://baptiste-wicht.com/posts/2014/04/install-use-clang-static-analyzer-cmake.html
